@@ -99,6 +99,51 @@ try {
     if ($name === 'intake_complete_unmatched') {
         erp_intake_complete_unmatched($pdo, $config, $requestId, (int) ($route[1] ?? 0));
     }
+    if ($name === 'pto_contracts') {
+        erp_pto_contracts($pdo, $config, $requestId);
+    }
+    if ($name === 'pto_rate_params') {
+        erp_pto_rate_params($pdo, $config, $requestId);
+    }
+    if ($name === 'ed_list') {
+        erp_ed_list($pdo, $config, $requestId);
+    }
+    if ($name === 'ed_create') {
+        erp_ed_create($pdo, $config, $requestId);
+    }
+    if ($name === 'ed_update') {
+        erp_ed_update($pdo, $config, $requestId, (int) ($route[1] ?? 0));
+    }
+    if ($name === 'ed_delete') {
+        erp_ed_delete($pdo, $config, $requestId, (int) ($route[1] ?? 0));
+    }
+    if ($name === 'ks_list') {
+        erp_ks_list($pdo, $config, $requestId);
+    }
+    if ($name === 'ks_create') {
+        erp_ks_create($pdo, $config, $requestId);
+    }
+    if ($name === 'ks_update') {
+        erp_ks_update($pdo, $config, $requestId, (int) ($route[1] ?? 0));
+    }
+    if ($name === 'ks_delete') {
+        erp_ks_delete($pdo, $config, $requestId, (int) ($route[1] ?? 0));
+    }
+    if ($name === 'work_statements_list') {
+        erp_work_statements_list($pdo, $config, $requestId);
+    }
+    if ($name === 'work_statement_create') {
+        erp_work_statement_create($pdo, $config, $requestId);
+    }
+    if ($name === 'work_statement_update') {
+        erp_work_statement_update($pdo, $config, $requestId, (int) ($route[1] ?? 0));
+    }
+    if ($name === 'work_statement_delete') {
+        erp_work_statement_delete($pdo, $config, $requestId, (int) ($route[1] ?? 0));
+    }
+    if ($name === 'pto_notify_status_cron') {
+        erp_pto_notify_status_cron($pdo, $config, $requestId);
+    }
     if ($name === 'work_log_create') {
         erp_work_log_create($pdo, $config, $requestId);
     }

@@ -38,6 +38,10 @@ const ERP_ROUTES = new Set([
     '/intake',
     '/intake-objects',
     '/intake-unmatched',
+    '/pto',
+    '/pto-ed',
+    '/pto-ks',
+    '/pto-work-statements',
 ])
 
 export default defineNuxtRouteMiddleware((to) => {
@@ -99,6 +103,10 @@ export default defineNuxtRouteMiddleware((to) => {
         '/intake': 'intake',
         '/intake-objects': 'intake',
         '/intake-unmatched': 'intake',
+        '/pto': 'project_data',
+        '/pto-ed': 'project_data',
+        '/pto-ks': 'project_data',
+        '/pto-work-statements': 'project_data',
     }
 
     const guardedFlag = ACCESS_GUARDED[path]

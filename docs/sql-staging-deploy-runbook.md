@@ -59,7 +59,7 @@ separate production gate is approved.
 
 ## Notification schedules
 
-Three notification jobs run on a schedule. None is triggered by user
+Four notification jobs run on a schedule. None is triggered by user
 activity, so an unscheduled job fails silently — nobody gets notified and
 nothing errors.
 
@@ -68,12 +68,15 @@ nothing errors.
 | Pending approvals | `scripts/push-notify-approvals.php` | `POST /api/internal/push-notify` | Reminds approvers of invoices awaiting their decision |
 | Supply status changes | `scripts/supply-notify-status.php` | `POST /api/internal/supply-notify-status` | Tells a supply request's author that its status changed |
 | Approval status changes | `scripts/approvals-notify-status.php` | `POST /api/internal/approvals-notify-status` | Tells an invoice's author that its approval status changed |
+| ПТО (ИД/КС) status changes | `scripts/pto-notify-status.php` | `POST /api/internal/pto-notify-status` | Tells everyone in ПТО that an ИД or КС record's status changed |
 
-The third job is a safety net, not the primary path: `erp_supply_work_create_invoice`
-and `erp_approvals_decide` already call `erp_approvals_notify_status_changes()`
-inline right after their own commit, so the author normally hears about a
-status change within the same request. This schedule only catches the case
-where that inline send failed.
+The third and fourth jobs are safety nets, not the primary path:
+`erp_supply_work_create_invoice` and `erp_approvals_decide` already call
+`erp_approvals_notify_status_changes()` inline right after their own commit,
+and `erp_ed_update`/`erp_ks_update` likewise call `erp_ed_notify_status_changes()`
+/`erp_ks_notify_status_changes()` — so the relevant audience normally hears
+about a status change within the same request. These schedules only catch the
+case where that inline send failed.
 
 A third script, `scripts/push-broadcast.php`, is not scheduled — it is a
 one-off announcement for a release:
