@@ -152,6 +152,16 @@ export const ERP_SECTIONS: ErpSection[] = [
         caption: 'Структуры и доступы',
         tone: '#016ED7',
     },
+    {
+        key: 'project_data',
+        to: '/pto',
+        routes: ['/pto', '/pto-ed', '/pto-ks', '/pto-work-statements'],
+        icon: 'heroicons:clipboard-document-list',
+        label: 'ПТО',
+        tabLabel: 'ПТО',
+        caption: 'ИД, КС, ведомость работ',
+        tone: '#7C3AED',
+    },
 ]
 
 /** Разделы, доступные сотруднику. */

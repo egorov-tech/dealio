@@ -84,6 +84,51 @@ function erp_route(string $method, string $path): ?array
     if ($method === 'POST' && preg_match('#^/intake/deliveries/(\d+)/unmatched$#', $path, $m) === 1) {
         return ['intake_complete_unmatched', $m[1]];
     }
+    if ($method === 'GET' && $path === '/pto/contracts') {
+        return ['pto_contracts'];
+    }
+    if ($method === 'GET' && $path === '/pto/rate-params') {
+        return ['pto_rate_params'];
+    }
+    if ($method === 'GET' && $path === '/pto/ed') {
+        return ['ed_list'];
+    }
+    if ($method === 'POST' && $path === '/pto/ed') {
+        return ['ed_create'];
+    }
+    if ($method === 'POST' && preg_match('#^/pto/ed/(\d+)$#', $path, $m) === 1) {
+        return ['ed_update', $m[1]];
+    }
+    if ($method === 'DELETE' && preg_match('#^/pto/ed/(\d+)$#', $path, $m) === 1) {
+        return ['ed_delete', $m[1]];
+    }
+    if ($method === 'GET' && $path === '/pto/ks') {
+        return ['ks_list'];
+    }
+    if ($method === 'POST' && $path === '/pto/ks') {
+        return ['ks_create'];
+    }
+    if ($method === 'POST' && preg_match('#^/pto/ks/(\d+)$#', $path, $m) === 1) {
+        return ['ks_update', $m[1]];
+    }
+    if ($method === 'DELETE' && preg_match('#^/pto/ks/(\d+)$#', $path, $m) === 1) {
+        return ['ks_delete', $m[1]];
+    }
+    if ($method === 'GET' && $path === '/pto/work-statements') {
+        return ['work_statements_list'];
+    }
+    if ($method === 'POST' && $path === '/pto/work-statements') {
+        return ['work_statement_create'];
+    }
+    if ($method === 'POST' && preg_match('#^/pto/work-statements/(\d+)$#', $path, $m) === 1) {
+        return ['work_statement_update', $m[1]];
+    }
+    if ($method === 'DELETE' && preg_match('#^/pto/work-statements/(\d+)$#', $path, $m) === 1) {
+        return ['work_statement_delete', $m[1]];
+    }
+    if ($method === 'POST' && $path === '/internal/pto-notify-status') {
+        return ['pto_notify_status_cron'];
+    }
     if ($method === 'POST' && $path === '/work-log') {
         return ['work_log_create'];
     }

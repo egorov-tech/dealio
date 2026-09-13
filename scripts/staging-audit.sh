@@ -53,6 +53,8 @@ for route in supply/catalog supply/my-requests; do
 done
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/internal/supply-notify-status")
 [ "$code" = "403" ] && ok "крон-маршрут без токена -> 403" || bad "крон-маршрут -> $code"
+code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/internal/pto-notify-status")
+[ "$code" = "403" ] && ok "крон-маршрут ПТО без токена -> 403" || bad "крон-маршрут ПТО -> $code"
 
 echo "── Репозиторий ──"
 [ -z "$(git status --porcelain)" ] && ok "рабочее дерево чистое" || bad "есть незакоммиченное"
