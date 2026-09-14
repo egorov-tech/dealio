@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
 import test from 'node:test'
 
-const migration = await readFile(new URL('../public/api/migrations/023_erp_ed_ks.sql', import.meta.url), 'utf8')
+const migration = await readFile(new URL('../public/api/migrations/024_erp_pto_own_tables.sql', import.meta.url), 'utf8')
 const php = await readFile(new URL('../public/api/src/Pto.php', import.meta.url), 'utf8')
 const auth = await readFile(new URL('../public/api/src/Auth.php', import.meta.url), 'utf8')
 const personnel = await readFile(new URL('../public/api/src/Personnel.php', import.meta.url), 'utf8')
@@ -89,9 +89,9 @@ test('каждая ручка ПТО проверяет право project_data,
 })
 
 test('лист без шапки не теряет первую строку — таблицы ИД/КС связаны с договором RESTRICT', () => {
-    assert.match(migration, /CREATE TABLE IF NOT EXISTS erp_ed/)
-    assert.match(migration, /CREATE TABLE IF NOT EXISTS erp_ks/)
-    for (const table of ['erp_ed', 'erp_ks']) {
+    assert.match(migration, /CREATE TABLE IF NOT EXISTS erp_pto_ed/)
+    assert.match(migration, /CREATE TABLE IF NOT EXISTS erp_pto_ks/)
+    for (const table of ['erp_pto_ed', 'erp_pto_ks']) {
         const start = migration.indexOf(`CREATE TABLE IF NOT EXISTS ${table}`)
         const end = migration.indexOf(';', start)
         const body = migration.slice(start, end)
@@ -116,9 +116,9 @@ test('статус ИД/КС ограничен списком из ТЗ, а н�
     }
 
     const edInput = functionBody(php, 'erp_ed_input')
-    assert.match(edInput, /in_array\(\$status, ERP_ED_STATUSES, true\)/)
+    assert.match(edInput, /in_array\(\$status, erp_ed_statuses\(\$pdo\), true\)/)
     const ksInput = functionBody(php, 'erp_ks_input')
-    assert.match(ksInput, /in_array\(\$status, ERP_KS_STATUSES, true\)/)
+    assert.match(ksInput, /in_array\(\$status, erp_ks_statuses\(\$pdo\), true\)/)
 })
 
 test('изменение статуса ИД/КС уведомляет ПТО — тот же diff-приём, что у заявок и счетов', () => {
@@ -126,8 +126,8 @@ test('изменение статуса ИД/КС уведомляет ПТО �
     // конкретного места: тот же приём, что erp_supply_notify_status_changes
     // и erp_approvals_notify_status_changes.
     for (const [fn, table, url] of [
-        ['erp_ed_notify_status_changes', 'erp_ed', "'/pto-ed'"],
-        ['erp_ks_notify_status_changes', 'erp_ks', "'/pto-ks'"],
+        ['erp_ed_notify_status_changes', 'erp_pto_ed', "'/pto-ed'"],
+        ['erp_ks_notify_status_changes', 'erp_pto_ks', "'/pto-ks'"],
     ]) {
         const body = functionBody(php, fn)
         assert.match(body, new RegExp(`FROM ${table} WHERE status <> notified_status`))
@@ -229,4 +229,54 @@ test('данные в закрытой карточке разделены на 
         assert.ok(wrPage.includes(`label: '${label}'`), `ВР: колонки должны включать «${label}»`)
     }
     assert.match(wrPage, /class="wr-tap__metrics"/)
+})
+
+test('раздел живёт в своих таблицах и не трогает чужие erp_ed/erp_ks', () => {
+    // Имена erp_ed/erp_ks на стенде оказались заняты сторонним импортом с
+    // другой схемой: `CREATE TABLE IF NOT EXISTS` его молча пропустил, а
+    // раздел падал на каждом запросе. Чужие данные не наши — переименовывать
+    // и удалять их нельзя, поэтому раздел ушёл в собственные erp_pto_*.
+    assert.doesNotMatch(migration, /RENAME TABLE/)
+    assert.doesNotMatch(migration, /DROP TABLE/)
+    assert.doesNotMatch(migration, /ALTER TABLE erp_ed\b/)
+    assert.doesNotMatch(migration, /ALTER TABLE erp_ks\b/)
+    assert.doesNotMatch(migration, /UPDATE erp_ed\b/)
+    assert.doesNotMatch(migration, /UPDATE erp_ks\b/)
+    assert.doesNotMatch(migration, /DELETE FROM erp_ed\b/)
+    assert.doesNotMatch(migration, /DELETE FROM erp_ks\b/)
+
+    // Копирование — ровно один раз и только в пустую таблицу: миграции
+    // прогоняются на каждом соединении, задвоить 384 строки нельзя.
+    assert.match(migration, /SELECT COUNT\(\*\) = 0 FROM erp_pto_ed/)
+    assert.match(migration, /SELECT COUNT\(\*\) = 0 FROM erp_pto_ks/)
+    assert.match(migration, /JOIN erp_contracts c ON c\.contract_name = i\.contract_name/)
+    // Перенос истории не должен разослать отделу 384 уведомления: статус
+    // сразу считается сообщённым.
+    assert.match(migration, /i\.status, i\.status/)
+
+    // Запросы раздела ходят только в свои таблицы.
+    assert.doesNotMatch(php, /FROM erp_ed\b/)
+    assert.doesNotMatch(php, /FROM erp_ks\b/)
+    assert.doesNotMatch(php, /INTO erp_ed\b/)
+    assert.doesNotMatch(php, /INTO erp_ks\b/)
+})
+
+test('статус, уже лежащий в данных, не мешает сохранить запись', () => {
+    // В перенесённых КС есть «На согласовании» — значения нет в списке ТЗ.
+    // Со справочником-только-из-ТЗ такую строку нельзя было бы сохранить
+    // даже после правки одной суммы: валидация отклонила бы её же статус.
+    const merge = functionBody(php, 'erp_pto_merge_statuses')
+    assert.match(merge, /!in_array\(\$status, \$dictionary, true\)/)
+    assert.match(functionBody(php, 'erp_ed_statuses'), /SELECT DISTINCT status FROM erp_pto_ed/)
+    assert.match(functionBody(php, 'erp_ks_statuses'), /SELECT DISTINCT status FROM erp_pto_ks/)
+})
+
+test('часть (захватка) из данных отдела доезжает до экрана ИД', () => {
+    assert.match(migration, /part VARCHAR\(64\) NOT NULL DEFAULT ''/)
+    assert.match(functionBody(php, 'erp_ed_row'), /'part' =>/)
+    assert.match(functionBody(php, 'erp_ed_input'), /'part' => \$part/)
+    assert.match(php, /SELECT id, contract_internal_number, aosr, title, part, volume, cost, status/)
+    assert.ok(edPage.includes("label: 'Часть'"), 'ИД: «Часть» должна быть колонкой закрытой карточки')
+    assert.match(edPage, /v-model="draft\.part"/)
+    assert.match(edPage, /v-model="newDraft\.part"/)
 })

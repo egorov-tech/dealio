@@ -34,6 +34,8 @@ export interface ErpEdRow {
     contractInternalNumber: string
     aosr: string
     title: string
+    /** Часть (захватка): DP2, DP4, DP6 — пришла с данными отдела. */
+    part: string
     volume: number | null
     cost: number | null
     status: string

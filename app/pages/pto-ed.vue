@@ -39,8 +39,8 @@ onMounted(load)
 
 // Правка идёт по одной строке: несколько открытых форм на телефоне — это и
 // промахи пальцем, и путаница, какую сохранять.
-type Draft = {contractInternalNumber: string; aosr: string; title: string; volume: string; cost: string; status: string}
-const emptyDraft = (): Draft => ({contractInternalNumber: '', aosr: '', title: '', volume: '', cost: '', status: ''})
+type Draft = {contractInternalNumber: string; aosr: string; title: string; part: string; volume: string; cost: string; status: string}
+const emptyDraft = (): Draft => ({contractInternalNumber: '', aosr: '', title: '', part: '', volume: '', cost: '', status: ''})
 
 const editingId = ref<number | null>(null)
 const draft = ref<Draft>(emptyDraft())
@@ -69,6 +69,7 @@ const onRowTap = async (row: ErpEdRow) => {
     contractInternalNumber: row.contractInternalNumber,
     aosr: row.aosr,
     title: row.title,
+    part: row.part,
     volume: editableNumber(row.volume),
     cost: editableNumber(row.cost),
     status: row.status,
@@ -145,6 +146,7 @@ const removeRow = async (row: ErpEdRow) => {
 const formatAmount = (value: number | null): string => value === null ? '—' : new Intl.NumberFormat('ru-RU', {maximumFractionDigits: 2}).format(value)
 
 const rowMetrics = (row: ErpEdRow) => [
+  {label: 'Часть', value: row.part || '—'},
   {label: 'Объём', value: formatAmount(row.volume)},
   {label: 'Стоимость', value: formatAmount(row.cost)},
   {label: 'Статус', value: row.status || '—'},
@@ -185,6 +187,10 @@ const rowMetrics = (row: ErpEdRow) => [
         <label class="ed-field">
           <span class="ed-field__label">Титул</span>
           <input v-model="newDraft.title" type="text" class="ed-input">
+        </label>
+        <label class="ed-field">
+          <span class="ed-field__label">Часть</span>
+          <input v-model="newDraft.part" type="text" class="ed-input">
         </label>
         <label class="ed-field">
           <span class="ed-field__label">Объём</span>
@@ -249,6 +255,10 @@ const rowMetrics = (row: ErpEdRow) => [
             <label class="ed-field">
               <span class="ed-field__label">Титул</span>
               <input v-model="draft.title" type="text" class="ed-input">
+            </label>
+            <label class="ed-field">
+              <span class="ed-field__label">Часть</span>
+              <input v-model="draft.part" type="text" class="ed-input">
             </label>
             <label class="ed-field">
               <span class="ed-field__label">Объём</span>
