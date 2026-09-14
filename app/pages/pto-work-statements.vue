@@ -174,6 +174,10 @@ const removeRow = async (row: ErpWorkStatementRow) => {
 const formatAmount = (value: number | null): string => value === null ? '—' : new Intl.NumberFormat('ru-RU', {maximumFractionDigits: 2}).format(value)
 
 const rowMetrics = (row: ErpWorkStatementRow) => [
+  // Тег — такая же колонка ведомости, как остальные: в заголовок он попадает
+  // только когда описание работы пустое, и без своей колонки строки с
+  // описанием прятали бы его совсем.
+  {label: 'Тег', value: row.tag || '—'},
   {label: 'Материал', value: row.material || '—'},
   {label: 'Толщина, мкм', value: formatAmount(row.thickness)},
   {label: 'Предел', value: row.fireResistance || '—'},
