@@ -64,3 +64,15 @@ expect_pto($wrRow['thickness'] === 450.0, 'Work statement row must cast thicknes
 expect_pto($wrRow['theoreticalConsumption'] === null, 'Work statement row must keep unset consumption as null');
 
 echo "Pto PHP tests passed\n";
+
+// Значения из выгрузки несут невидимые хвосты: на экран и в сравнение
+// статусов они должны попадать очищенными, иначе пересохранение записи
+// выглядит сменой статуса.
+expect_pto(erp_pto_clean("Нет ПОЗ\r") === 'Нет ПОЗ', 'возврат каретки срезается');
+expect_pto(erp_pto_clean("Подписана\r\n") === 'Подписана', 'CRLF срезается');
+expect_pto(erp_pto_clean('  Согласована  ') === 'Согласована', 'пробелы по краям срезаются');
+expect_pto(erp_pto_clean(null) === '', 'пустое значение остаётся пустым');
+expect_pto(
+    erp_pto_merge_statuses(['Подписана'], ["Подписана\r", 'На согласовании']) === ['Подписана', 'На согласовании'],
+    'грязный дубль не становится отдельным пунктом справочника'
+);

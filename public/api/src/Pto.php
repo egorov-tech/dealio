@@ -25,6 +25,23 @@ const ERP_ED_STATUSES = [
 
 const ERP_KS_STATUSES = ['Подписана', 'Согласована'];
 
+/** Условие «статус сменился» для diff-уведомлений.
+ *
+ * Данные пришли из выгрузки и несут невидимые хвосты (CR, перевод строки),
+ * поэтому сырое `status <> notified_status` считало бы сменой статуса
+ * простое пересохранение записи.
+ */
+const ERP_PTO_STATUS_CHANGED = 'TRIM(REPLACE(REPLACE(status, CHAR(13), CHAR(32)), CHAR(10), CHAR(32)))'
+    . ' <> TRIM(REPLACE(REPLACE(notified_status, CHAR(13), CHAR(32)), CHAR(10), CHAR(32)))';
+
+/** Значение из выгрузки — с невидимыми хвостами; на экран и в сравнение
+ * статусов оно должно попадать очищенным.
+ */
+function erp_pto_clean(mixed $value): string
+{
+    return trim(str_replace(["\r", "\n"], ' ', (string) $value));
+}
+
 /** Сотрудники ПТО — тем же фильтром, что «Приход» и ведомость работ (022):
  * department — свободный текст без справочника, часть карточек завела отдел
  * иначе, а должность «Инженер ПТО» — нет.
@@ -112,12 +129,12 @@ function erp_ed_row(array $row): array
     return [
         'id' => (int) $row['id'],
         'contractInternalNumber' => (string) $row['contract_internal_number'],
-        'aosr' => (string) $row['aosr'],
-        'title' => (string) $row['title'],
-        'part' => (string) ($row['part'] ?? ''),
+        'aosr' => erp_pto_clean($row['aosr']),
+        'title' => erp_pto_clean($row['title']),
+        'part' => erp_pto_clean($row['part'] ?? ''),
         'volume' => $row['volume'] !== null ? (float) $row['volume'] : null,
         'cost' => $row['cost'] !== null ? (float) $row['cost'] : null,
-        'status' => (string) $row['status'],
+        'status' => erp_pto_clean($row['status']),
     ];
 }
 
@@ -125,8 +142,8 @@ function erp_ed_input(PDO $pdo, string $requestId): array
 {
     $input = erp_warehouse_input($requestId);
 
-    $contract = trim((string) ($input['contractInternalNumber'] ?? ''));
-    $status = trim((string) ($input['status'] ?? ''));
+    $contract = erp_pto_clean($input['contractInternalNumber'] ?? '');
+    $status = erp_pto_clean($input['status'] ?? '');
     if ($contract === '') {
         erp_json(422, erp_error_payload('invalid_input', 'Укажите договор', $requestId));
     }
@@ -135,9 +152,9 @@ function erp_ed_input(PDO $pdo, string $requestId): array
     }
     erp_pto_require_contract($pdo, $contract, $requestId);
 
-    $aosr = trim((string) ($input['aosr'] ?? ''));
-    $title = trim((string) ($input['title'] ?? ''));
-    $part = trim((string) ($input['part'] ?? ''));
+    $aosr = erp_pto_clean($input['aosr'] ?? '');
+    $title = erp_pto_clean($input['title'] ?? '');
+    $part = erp_pto_clean($input['part'] ?? '');
     if (mb_strlen($aosr) > 255 || mb_strlen($title) > 255 || mb_strlen($part) > 64) {
         erp_json(422, erp_error_payload('invalid_input', 'Слишком длинное значение', $requestId));
     }
@@ -163,7 +180,7 @@ function erp_ed_input(PDO $pdo, string $requestId): array
 function erp_pto_merge_statuses(array $dictionary, array $used): array
 {
     foreach ($used as $status) {
-        $status = trim((string) $status);
+        $status = erp_pto_clean($status);
         if ($status !== '' && !in_array($status, $dictionary, true)) {
             $dictionary[] = $status;
         }
@@ -287,9 +304,13 @@ function erp_ed_delete(PDO $pdo, array $config, string $requestId, int $id): voi
  */
 function erp_ed_notify_status_changes(PDO $pdo, array $config): array
 {
+    // Сравнение идёт по очищенным значениям, а не по сырым столбцам.
+    // Импорт принёс статусы с хвостовым возвратом каретки («Нет ПОЗ\r»), и
+    // первая же правка такой записи выглядела бы сменой статуса: отдел
+    // получил бы уведомление о том, чего не было.
     $changed = $pdo->query(
-        "SELECT id, contract_internal_number, aosr, title, status
-         FROM erp_pto_ed WHERE status <> notified_status"
+        'SELECT id, contract_internal_number, aosr, title, status
+         FROM erp_pto_ed WHERE ' . ERP_PTO_STATUS_CHANGED
     )->fetchAll(PDO::FETCH_ASSOC);
 
     $markNotified = $pdo->prepare('UPDATE erp_pto_ed SET notified_status = :status WHERE id = :id');
@@ -325,9 +346,9 @@ function erp_ks_row(array $row): array
     return [
         'id' => (int) $row['id'],
         'contractInternalNumber' => (string) $row['contract_internal_number'],
-        'number' => (string) $row['number'],
+        'number' => erp_pto_clean($row['number']),
         'cost' => $row['cost'] !== null ? (float) $row['cost'] : null,
-        'status' => (string) $row['status'],
+        'status' => erp_pto_clean($row['status']),
     ];
 }
 
@@ -335,8 +356,8 @@ function erp_ks_input(PDO $pdo, string $requestId): array
 {
     $input = erp_warehouse_input($requestId);
 
-    $contract = trim((string) ($input['contractInternalNumber'] ?? ''));
-    $status = trim((string) ($input['status'] ?? ''));
+    $contract = erp_pto_clean($input['contractInternalNumber'] ?? '');
+    $status = erp_pto_clean($input['status'] ?? '');
     if ($contract === '') {
         erp_json(422, erp_error_payload('invalid_input', 'Укажите договор', $requestId));
     }
@@ -345,7 +366,7 @@ function erp_ks_input(PDO $pdo, string $requestId): array
     }
     erp_pto_require_contract($pdo, $contract, $requestId);
 
-    $number = trim((string) ($input['number'] ?? ''));
+    $number = erp_pto_clean($input['number'] ?? '');
     if (mb_strlen($number) > 64) {
         erp_json(422, erp_error_payload('invalid_input', 'Слишком длинный номер', $requestId));
     }
@@ -436,8 +457,8 @@ function erp_ks_delete(PDO $pdo, array $config, string $requestId, int $id): voi
 function erp_ks_notify_status_changes(PDO $pdo, array $config): array
 {
     $changed = $pdo->query(
-        "SELECT id, contract_internal_number, number, status
-         FROM erp_pto_ks WHERE status <> notified_status"
+        'SELECT id, contract_internal_number, number, status
+         FROM erp_pto_ks WHERE ' . ERP_PTO_STATUS_CHANGED
     )->fetchAll(PDO::FETCH_ASSOC);
 
     $markNotified = $pdo->prepare('UPDATE erp_pto_ks SET notified_status = :status WHERE id = :id');
