@@ -130,7 +130,7 @@ test('изменение статуса ИД/КС уведомляет ПТО �
         ['erp_ks_notify_status_changes', 'erp_pto_ks', "'/pto-ks'"],
     ]) {
         const body = functionBody(php, fn)
-        assert.match(body, new RegExp(`FROM ${table} WHERE status <> notified_status`))
+        assert.match(body, new RegExp(`FROM ${table} WHERE ' \\. ERP_PTO_STATUS_CHANGED`))
         assert.match(body, new RegExp(`UPDATE ${table} SET notified_status = :status`))
         assert.match(body, /erp_pto_user_ids\(\$pdo\)/)
         assert.match(body, /erp_push_send_to_users/)
@@ -279,4 +279,21 @@ test('часть (захватка) из данных отдела доезжа�
     assert.ok(edPage.includes("label: 'Часть'"), 'ИД: «Часть» должна быть колонкой закрытой карточки')
     assert.match(edPage, /v-model="draft\.part"/)
     assert.match(edPage, /v-model="newDraft\.part"/)
+})
+
+test('невидимый хвост из выгрузки не считается сменой статуса', () => {
+    // Импорт принёс «Нет ПОЗ\r». Сырое status <> notified_status посчитало бы
+    // сменой статуса обычное пересохранение записи, и отдел получил бы
+    // уведомление о том, чего не было.
+    assert.match(php, /const ERP_PTO_STATUS_CHANGED = /)
+    assert.doesNotMatch(php, /WHERE status <> notified_status/)
+    for (const fn of ['erp_ed_notify_status_changes', 'erp_ks_notify_status_changes']) {
+        assert.match(functionBody(php, fn), /ERP_PTO_STATUS_CHANGED/, `${fn} должна сравнивать очищенные значения`)
+    }
+    // Очистка идёт и на выдаче, и на входе — иначе «Нет ПОЗ\r» станет
+    // отдельным пунктом справочника статусов.
+    assert.match(functionBody(php, 'erp_pto_clean'), /str_replace\(\["\\r", "\\n"\], ' ', \(string\) \$value\)/)
+    assert.match(functionBody(php, 'erp_ed_row'), /'status' => erp_pto_clean/)
+    assert.match(functionBody(php, 'erp_ks_row'), /'status' => erp_pto_clean/)
+    assert.match(functionBody(php, 'erp_pto_merge_statuses'), /erp_pto_clean\(\$status\)/)
 })
