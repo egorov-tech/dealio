@@ -76,7 +76,7 @@ foreach ($paths as $path) {
     $sql = file_get_contents($path);
     foreach (erp_migration_statements((string) $sql) as $index => $statement) {
         expect_migration(
-            (bool) preg_match('/^(CREATE|ALTER|INSERT|UPDATE|DROP|SET)/i', $statement),
+            (bool) preg_match('/^(CREATE|ALTER|INSERT|UPDATE|DROP|SET|PREPARE|EXECUTE|DEALLOCATE)/i', $statement),
             sprintf('%s statement #%d is not executable SQL', basename($path), $index + 1)
         );
     }

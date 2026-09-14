@@ -114,6 +114,7 @@ function erp_ed_row(array $row): array
         'contractInternalNumber' => (string) $row['contract_internal_number'],
         'aosr' => (string) $row['aosr'],
         'title' => (string) $row['title'],
+        'part' => (string) ($row['part'] ?? ''),
         'volume' => $row['volume'] !== null ? (float) $row['volume'] : null,
         'cost' => $row['cost'] !== null ? (float) $row['cost'] : null,
         'status' => (string) $row['status'],
@@ -129,14 +130,15 @@ function erp_ed_input(PDO $pdo, string $requestId): array
     if ($contract === '') {
         erp_json(422, erp_error_payload('invalid_input', 'Укажите договор', $requestId));
     }
-    if (!in_array($status, ERP_ED_STATUSES, true)) {
+    if (!in_array($status, erp_ed_statuses($pdo), true)) {
         erp_json(422, erp_error_payload('invalid_input', 'Укажите статус из списка', $requestId));
     }
     erp_pto_require_contract($pdo, $contract, $requestId);
 
     $aosr = trim((string) ($input['aosr'] ?? ''));
     $title = trim((string) ($input['title'] ?? ''));
-    if (mb_strlen($aosr) > 255 || mb_strlen($title) > 255) {
+    $part = trim((string) ($input['part'] ?? ''));
+    if (mb_strlen($aosr) > 255 || mb_strlen($title) > 255 || mb_strlen($part) > 64) {
         erp_json(422, erp_error_payload('invalid_input', 'Слишком длинное значение', $requestId));
     }
 
@@ -144,10 +146,45 @@ function erp_ed_input(PDO $pdo, string $requestId): array
         'contract_internal_number' => $contract,
         'aosr' => $aosr,
         'title' => $title,
+        'part' => $part,
         'volume' => erp_pto_nullable_number($input['volume'] ?? null),
         'cost' => erp_pto_nullable_number($input['cost'] ?? null),
         'status' => $status,
     ];
+}
+
+/** Справочник статусов из ТЗ плюс те, что уже лежат в данных.
+ *
+ * Перенесённые строки принесли значения за пределами списка — у КС это
+ * «На согласовании». Оставь мы только список ТЗ, такую запись нельзя было бы
+ * сохранить даже после правки одной лишь суммы: валидация отклонила бы её
+ * собственный, уже существующий статус.
+ */
+function erp_pto_merge_statuses(array $dictionary, array $used): array
+{
+    foreach ($used as $status) {
+        $status = trim((string) $status);
+        if ($status !== '' && !in_array($status, $dictionary, true)) {
+            $dictionary[] = $status;
+        }
+    }
+    return $dictionary;
+}
+
+function erp_ed_statuses(PDO $pdo): array
+{
+    return erp_pto_merge_statuses(
+        ERP_ED_STATUSES,
+        $pdo->query('SELECT DISTINCT status FROM erp_pto_ed')->fetchAll(PDO::FETCH_COLUMN),
+    );
+}
+
+function erp_ks_statuses(PDO $pdo): array
+{
+    return erp_pto_merge_statuses(
+        ERP_KS_STATUSES,
+        $pdo->query('SELECT DISTINCT status FROM erp_pto_ks')->fetchAll(PDO::FETCH_COLUMN),
+    );
 }
 
 /** Пустая строка/null — «не заполнено», а не ноль: ноль в объёме или
@@ -167,13 +204,13 @@ function erp_ed_list(PDO $pdo, array $config, string $requestId): void
     erp_require_permission($pdo, $actor, 'project_data', $requestId);
 
     $rows = $pdo->query(
-        'SELECT id, contract_internal_number, aosr, title, volume, cost, status
-         FROM erp_ed ORDER BY id DESC'
+        'SELECT id, contract_internal_number, aosr, title, part, volume, cost, status
+         FROM erp_pto_ed ORDER BY id DESC'
     )->fetchAll(PDO::FETCH_ASSOC);
 
     erp_json(200, ['ok' => true, 'data' => [
         'rows' => array_map('erp_ed_row', $rows),
-        'statuses' => ERP_ED_STATUSES,
+        'statuses' => erp_ed_statuses($pdo),
     ]]);
 }
 
@@ -189,8 +226,8 @@ function erp_ed_create(PDO $pdo, array $config, string $requestId): void
     $data['created_by'] = (int) $actor['id'];
 
     $pdo->prepare(
-        'INSERT INTO erp_ed (contract_internal_number, aosr, title, volume, cost, status, notified_status, created_by)
-         VALUES (:contract_internal_number, :aosr, :title, :volume, :cost, :status, :notified_status, :created_by)'
+        'INSERT INTO erp_pto_ed (contract_internal_number, aosr, title, part, volume, cost, status, notified_status, created_by)
+         VALUES (:contract_internal_number, :aosr, :title, :part, :volume, :cost, :status, :notified_status, :created_by)'
     )->execute($data);
 
     $id = (int) $pdo->lastInsertId();
@@ -202,7 +239,7 @@ function erp_ed_update(PDO $pdo, array $config, string $requestId, int $id): voi
     $actor = erp_require_user($pdo, $config, $requestId);
     erp_require_permission($pdo, $actor, 'project_data', $requestId);
 
-    $exists = $pdo->prepare('SELECT id FROM erp_ed WHERE id = :id');
+    $exists = $pdo->prepare('SELECT id FROM erp_pto_ed WHERE id = :id');
     $exists->execute(['id' => $id]);
     if (!$exists->fetchColumn()) {
         erp_json(404, erp_error_payload('not_found', 'Запись ИД не найдена', $requestId));
@@ -210,8 +247,8 @@ function erp_ed_update(PDO $pdo, array $config, string $requestId, int $id): voi
 
     $data = erp_ed_input($pdo, $requestId);
     $pdo->prepare(
-        'UPDATE erp_ed SET contract_internal_number = :contract_internal_number, aosr = :aosr, title = :title,
-             volume = :volume, cost = :cost, status = :status
+        'UPDATE erp_pto_ed SET contract_internal_number = :contract_internal_number, aosr = :aosr, title = :title,
+             part = :part, volume = :volume, cost = :cost, status = :status
          WHERE id = :id'
     )->execute($data + ['id' => $id]);
 
@@ -231,7 +268,7 @@ function erp_ed_delete(PDO $pdo, array $config, string $requestId, int $id): voi
     $actor = erp_require_user($pdo, $config, $requestId);
     erp_require_permission($pdo, $actor, 'project_data', $requestId);
 
-    $stmt = $pdo->prepare('DELETE FROM erp_ed WHERE id = :id');
+    $stmt = $pdo->prepare('DELETE FROM erp_pto_ed WHERE id = :id');
     $stmt->execute(['id' => $id]);
     if ($stmt->rowCount() === 0) {
         erp_json(404, erp_error_payload('not_found', 'Запись ИД не найдена', $requestId));
@@ -252,10 +289,10 @@ function erp_ed_notify_status_changes(PDO $pdo, array $config): array
 {
     $changed = $pdo->query(
         "SELECT id, contract_internal_number, aosr, title, status
-         FROM erp_ed WHERE status <> notified_status"
+         FROM erp_pto_ed WHERE status <> notified_status"
     )->fetchAll(PDO::FETCH_ASSOC);
 
-    $markNotified = $pdo->prepare('UPDATE erp_ed SET notified_status = :status WHERE id = :id');
+    $markNotified = $pdo->prepare('UPDATE erp_pto_ed SET notified_status = :status WHERE id = :id');
     $recipients = erp_pto_user_ids($pdo);
 
     foreach ($changed as $row) {
@@ -303,7 +340,7 @@ function erp_ks_input(PDO $pdo, string $requestId): array
     if ($contract === '') {
         erp_json(422, erp_error_payload('invalid_input', 'Укажите договор', $requestId));
     }
-    if (!in_array($status, ERP_KS_STATUSES, true)) {
+    if (!in_array($status, erp_ks_statuses($pdo), true)) {
         erp_json(422, erp_error_payload('invalid_input', 'Укажите статус из списка', $requestId));
     }
     erp_pto_require_contract($pdo, $contract, $requestId);
@@ -327,12 +364,12 @@ function erp_ks_list(PDO $pdo, array $config, string $requestId): void
     erp_require_permission($pdo, $actor, 'project_data', $requestId);
 
     $rows = $pdo->query(
-        'SELECT id, contract_internal_number, number, cost, status FROM erp_ks ORDER BY id DESC'
+        'SELECT id, contract_internal_number, number, cost, status FROM erp_pto_ks ORDER BY id DESC'
     )->fetchAll(PDO::FETCH_ASSOC);
 
     erp_json(200, ['ok' => true, 'data' => [
         'rows' => array_map('erp_ks_row', $rows),
-        'statuses' => ERP_KS_STATUSES,
+        'statuses' => erp_ks_statuses($pdo),
     ]]);
 }
 
@@ -346,7 +383,7 @@ function erp_ks_create(PDO $pdo, array $config, string $requestId): void
     $data['created_by'] = (int) $actor['id'];
 
     $pdo->prepare(
-        'INSERT INTO erp_ks (contract_internal_number, number, cost, status, notified_status, created_by)
+        'INSERT INTO erp_pto_ks (contract_internal_number, number, cost, status, notified_status, created_by)
          VALUES (:contract_internal_number, :number, :cost, :status, :notified_status, :created_by)'
     )->execute($data);
 
@@ -359,7 +396,7 @@ function erp_ks_update(PDO $pdo, array $config, string $requestId, int $id): voi
     $actor = erp_require_user($pdo, $config, $requestId);
     erp_require_permission($pdo, $actor, 'project_data', $requestId);
 
-    $exists = $pdo->prepare('SELECT id FROM erp_ks WHERE id = :id');
+    $exists = $pdo->prepare('SELECT id FROM erp_pto_ks WHERE id = :id');
     $exists->execute(['id' => $id]);
     if (!$exists->fetchColumn()) {
         erp_json(404, erp_error_payload('not_found', 'Акт КС не найден', $requestId));
@@ -367,7 +404,7 @@ function erp_ks_update(PDO $pdo, array $config, string $requestId, int $id): voi
 
     $data = erp_ks_input($pdo, $requestId);
     $pdo->prepare(
-        'UPDATE erp_ks SET contract_internal_number = :contract_internal_number, number = :number,
+        'UPDATE erp_pto_ks SET contract_internal_number = :contract_internal_number, number = :number,
              cost = :cost, status = :status
          WHERE id = :id'
     )->execute($data + ['id' => $id]);
@@ -386,7 +423,7 @@ function erp_ks_delete(PDO $pdo, array $config, string $requestId, int $id): voi
     $actor = erp_require_user($pdo, $config, $requestId);
     erp_require_permission($pdo, $actor, 'project_data', $requestId);
 
-    $stmt = $pdo->prepare('DELETE FROM erp_ks WHERE id = :id');
+    $stmt = $pdo->prepare('DELETE FROM erp_pto_ks WHERE id = :id');
     $stmt->execute(['id' => $id]);
     if ($stmt->rowCount() === 0) {
         erp_json(404, erp_error_payload('not_found', 'Акт КС не найден', $requestId));
@@ -400,10 +437,10 @@ function erp_ks_notify_status_changes(PDO $pdo, array $config): array
 {
     $changed = $pdo->query(
         "SELECT id, contract_internal_number, number, status
-         FROM erp_ks WHERE status <> notified_status"
+         FROM erp_pto_ks WHERE status <> notified_status"
     )->fetchAll(PDO::FETCH_ASSOC);
 
-    $markNotified = $pdo->prepare('UPDATE erp_ks SET notified_status = :status WHERE id = :id');
+    $markNotified = $pdo->prepare('UPDATE erp_pto_ks SET notified_status = :status WHERE id = :id');
     $recipients = erp_pto_user_ids($pdo);
 
     foreach ($changed as $row) {
