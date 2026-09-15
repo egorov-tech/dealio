@@ -562,16 +562,18 @@ const rowMetrics = (row: ErpEdRow) => [
   gap: 8px
   margin-top: 4px
 
+// Удаление не спорит по весу с «Сохранить»: компактная кнопка у края, а не
+// полоса во всю ширину формы.
 .ed-delete
+  justify-self: end
   display: flex
   align-items: center
-  justify-content: center
   gap: 6px
-  width: 100%
-  min-height: 38px
-  border: 1px solid rgba(220, 38, 38, 0.35)
+  height: 34px
+  padding: 0 12px
+  border: 1px solid rgba(220, 38, 38, 0.22)
   border-radius: 10px
-  background: rgba(255, 255, 255, 0.75)
+  background: rgba(255, 255, 255, 0.72)
   color: #B91C1C
   font-size: 13px
   font-weight: 600

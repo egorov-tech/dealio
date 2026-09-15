@@ -387,3 +387,21 @@ test('ИД: из блока убраны удаление, часть, стат�
     assert.match(edPage, /\{label: 'Объём', value: formatAmount\(row\.volume\)\}/)
     assert.match(edPage, /\{label: 'Стоимость', value: formatAmount\(row\.cost\)\}/)
 })
+
+test('кнопка удаления не растягивается во всю высоту карточки', () => {
+    // Была красная полоса во весь бок строки: чем выше карточка, тем крупнее
+    // выходило самое разрушительное действие на экране.
+    for (const [name, page, prefix] of [['КС', ksPage, 'ks'], ['ВР', wrPage, 'wr']]) {
+        const row = page.slice(page.indexOf(`.${prefix}-row`), page.indexOf(`.${prefix}-tap`))
+        assert.ok(!row.includes('align-items: stretch'), `${name}: строка не должна растягивать кнопку`)
+        assert.match(row, /align-items: flex-start/)
+
+        const button = page.slice(page.indexOf(`.${prefix}-remove`))
+        assert.match(button.slice(0, 200), /height: 34px/, `${name}: у кнопки удаления должна быть своя высота`)
+    }
+
+    // У ИД удаление живёт в форме правки — там оно тоже не во всю ширину.
+    const edDelete = edPage.slice(edPage.indexOf('.ed-delete'))
+    assert.match(edDelete.slice(0, 200), /justify-self: end/)
+    assert.ok(!edDelete.slice(0, 200).includes('width: 100%'), 'ИД: удаление не должно занимать всю ширину формы')
+})
