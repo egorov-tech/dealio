@@ -202,6 +202,10 @@ test('три экрана: карточка — тап открывает пра
         assert.match(page, /@click="removeRow\(row\)"/, `${name}: должно быть удаление строки`)
         assert.match(page, /ErpCombobox/, `${name}: договор выбирается из справочника, а не вводится вручную`)
     }
+    // У ИД удаление живёт внутри открытой формы, а не в закрытой карточке:
+    // по ТЗ кнопки в блоке быть не должно, но сама возможность удалить
+    // запись не теряется.
+    assert.match(edPage, /class="ed-edit"[\s\S]*@click="removeRow\(row\)"/)
     // Статус — из списка, а не текстовое поле.
     assert.match(edPage, /v-model="draft\.status".*:options="statusOptions"/s)
     assert.match(ksPage, /v-model="draft\.status".*:options="statusOptions"/s)
@@ -276,7 +280,9 @@ test('часть (захватка) из данных отдела доезжа�
     assert.match(functionBody(php, 'erp_ed_row'), /'part' =>/)
     assert.match(functionBody(php, 'erp_ed_input'), /'part' => \$part/)
     assert.match(php, /SELECT id, contract_internal_number, aosr, title, part, volume, cost, status/)
-    assert.ok(edPage.includes("label: 'Часть'"), 'ИД: «Часть» должна быть колонкой закрытой карточки')
+    // В закрытой карточке «Части» по ТЗ быть не должно, но значение не
+    // выбрасывается: оно остаётся в форме правки и в базе.
+    assert.ok(!edPage.includes("label: 'Часть'"), 'ИД: «Часть» убрана из закрытой карточки')
     assert.match(edPage, /v-model="draft\.part"/)
     assert.match(edPage, /v-model="newDraft\.part"/)
 })
@@ -296,4 +302,88 @@ test('невидимый хвост из выгрузки не считаетс�
     assert.match(functionBody(php, 'erp_ed_row'), /'status' => erp_pto_clean/)
     assert.match(functionBody(php, 'erp_ks_row'), /'status' => erp_pto_clean/)
     assert.match(functionBody(php, 'erp_pto_merge_statuses'), /erp_pto_clean\(\$status\)/)
+})
+
+test('ИД: блоки сгруппированы по статусам в порядке из ТЗ', () => {
+    // Порядок задан ТЗ и не совпадает ни с алфавитом, ни с порядком
+    // справочника ERP_ED_STATUSES — это очередь работы отдела.
+    const order = [
+        'Согласована', 'На проверке СК', 'Подготовка', 'На проверке ГСП',
+        'Устранение замечаний', 'Не хватает Инспекций', 'Не хватает АВК',
+        'Нет ПОЗ', 'Подписана',
+    ]
+    const declared = edPage.slice(edPage.indexOf('const STATUS_ORDER = ['), edPage.indexOf('const STATUS_TONE'))
+    for (const status of order) {
+        assert.ok(declared.includes(`'${status}'`), `нет статуса «${status}» в порядке групп`)
+    }
+    const positions = order.map(status => declared.indexOf(`'${status}'`))
+    assert.deepEqual(positions, [...positions].sort((a, b) => a - b), 'порядок групп разошёлся с ТЗ')
+
+    assert.match(edPage, /const groups = computed/)
+    assert.match(edPage, /v-for="group in groups"/)
+    assert.match(edPage, /v-for="row in group\.items"/)
+
+    // Статус вне списка ТЗ («Забрал ВЛС», «Гарантийный объём», пустой) обязан
+    // попасть в свою группу, иначе запись исчезнет с экрана, оставшись в базе.
+    assert.match(edPage, /index === -1 \? STATUS_ORDER\.length : index/)
+    assert.match(edPage, /STATUS_TONE\[status\] \?\? 'neutral'/)
+})
+
+test('ИД: цвет блока задан статусом и не сливается с фоном экрана', () => {
+    // Заливки — ровно из ТЗ.
+    for (const [status, fill] of [
+        ['Устранение замечаний', '#fff2cc'],
+        ['На проверке ГСП', '#d9e1f2'],
+        ['На проверке СК', '#d9e1f2'],
+        ['Не хватает Инспекций', '#fff2cc'],
+        ['Не хватает АВК', '#fff2cc'],
+        ['Согласована', '#e2efda'],
+        ['Подписана', '#a9d08e'],
+        ['Нет ПОЗ', '#ed7d31'],
+        ['Подготовка', '#fff2cc'],
+    ]) {
+        const tone = edPage.match(new RegExp(`'${status}': '(\\w+)'`))
+        assert.ok(tone, `статусу «${status}» не назначен тон`)
+        const block = edPage.slice(edPage.indexOf(`.ed-tone--${tone[1]}`))
+        assert.ok(block.slice(0, 120).includes(`--ed-fill: ${fill}`), `«${status}» должен заливаться ${fill}`)
+    }
+
+    // Фон экрана — #EAF2FD, и «На проверке» (#d9e1f2) на нём почти
+    // растворяется: карточку отделяет контур, иначе не выполнен пункт приёмки
+    // «цвет блоков не сливается с фоном».
+    assert.match(edPage, /\.ed-card[\s\S]*?border: 1px solid var\(--ed-line\)/)
+    for (const tone of ['ok', 'info', 'warn', 'alert', 'done', 'neutral']) {
+        const block = edPage.slice(edPage.indexOf(`.ed-tone--${tone}`))
+        assert.ok(block.slice(0, 120).includes('--ed-line:'), `тон ${tone} без контура`)
+    }
+
+    // Тёмные чернила держат контраст даже на самой насыщенной заливке
+    // (#ed7d31); белый текст на ней даёт 2,8:1 и нечитаем.
+    assert.match(edPage, /--ed-ink: #16202e/)
+    // На #ed7d31 подписи колонок при 0,72 дают всего 3,1:1 — ниже порога.
+    assert.match(edPage, /\.ed-card\.ed-tone--alert[\s\S]*?--ed-ink-dim: rgba\(22, 32, 46, 0\.9\)/)
+})
+
+test('ИД: поиск по титулу наверху страницы', () => {
+    assert.match(edPage, /#search/)
+    assert.match(edPage, /ErpSearchBar[\s\S]*?placeholder="Поиск по титулу"/)
+    // Именно по титулу — так сказано в ТЗ.
+    assert.match(edPage, /row\.title\.toLowerCase\(\)\.includes\(needle\)/)
+    // Пустая выдача не должна выглядеть поломкой экрана.
+    assert.match(edPage, /ничего не найдено/i)
+    assert.match(edPage, /Сбросить поиск/)
+})
+
+test('ИД: из блока убраны удаление, часть, статус и договор', () => {
+    const card = edPage.slice(edPage.indexOf('<article'), edPage.indexOf('<div v-if="editingId === row.id"'))
+    assert.ok(!card.includes('removeRow'), 'кнопки удаления в блоке быть не должно')
+    assert.ok(!card.includes('row.part'), '«Часть» убрана из блока')
+    assert.ok(!card.includes('row.status'), 'статус несут заголовок группы и цвет')
+    assert.ok(!card.includes('row.contractInternalNumber'), 'номер договора убран из блока')
+
+    // Осталось ровно то, что перечислено в ТЗ.
+    assert.ok(card.includes('row.title'), 'титул остаётся в блоке')
+    assert.ok(card.includes('row.aosr'), 'номер АОСР остаётся в блоке')
+    assert.match(edPage, /\{label: 'Объём', value: formatAmount\(row\.volume\)\}/)
+    assert.match(edPage, /\{label: 'Стоимость', value: formatAmount\(row\.cost\)\}/)
 })
