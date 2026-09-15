@@ -256,8 +256,11 @@ const moneyFormat = new Intl.NumberFormat('ru-RU', {maximumFractionDigits: 2})
   gap: 10px
 
 .ks-row
+  // Не stretch: кнопка удаления тянулась во всю высоту карточки красной
+  // полосой во весь бок — чем выше строка, тем крупнее выходило самое
+  // разрушительное действие на экране.
   display: flex
-  align-items: stretch
+  align-items: flex-start
   gap: 8px
 
 .ks-tap
@@ -313,12 +316,13 @@ const moneyFormat = new Intl.NumberFormat('ru-RU', {maximumFractionDigits: 2})
 
 .ks-remove
   flex-shrink: 0
-  width: 32px
+  width: 34px
+  height: 34px
   display: flex
   align-items: center
   justify-content: center
-  border: none
-  background: rgba(220, 38, 38, 0.08)
+  border: 1px solid rgba(220, 38, 38, 0.18)
+  background: rgba(220, 38, 38, 0.07)
   color: #DC2626
   border-radius: 10px
 
