@@ -30,17 +30,20 @@ const tone = computed(() => STATUS_TONE[props.status] ?? 'neutral')
 
 <style scoped lang="sass">
 .erp-status-badge
+  box-sizing: border-box
   display: inline-flex
   align-items: center
   max-width: 100%
-  padding: 3px 9px
+  min-height: 28px
+  padding: 4px 10px
   border-radius: 999px
-  // 11,5px вместо 12: статусы в отчёте стоят в узкой колонке рядом с двумя
-  // числовыми, и «Устранение замечаний» на 12px не помещался в неё даже
-  // переносом по словам.
-  font-size: 11.5px
-  font-weight: 700
-  line-height: 1.3
+  // Плашка — самостоятельный смысловой элемент, а не мелкая подпись в
+  // таблице: на узком экране строка перестраивается, и ужимать статус ради
+  // колонок не нужно. При этом смысл несёт цвет заливки, а не вес текста —
+  // жирное начертание спорило с ним и делало список шумным.
+  font-size: 13px
+  font-weight: 500
+  line-height: 1.35
   text-align: center
   // Перенос только по границе слова, и оба свойства заданы явно: они
   // наследуемые, а колонки таблиц вокруг любят ставить себе

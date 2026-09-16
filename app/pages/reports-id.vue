@@ -75,9 +75,9 @@ const groups = computed(() => groupIdByContract(rows.value))
             <span role="columnheader">Стоимость с НДС</span>
           </div>
           <div v-for="(line, index) in group.rows" :key="`${line.status}-${index}`" class="id-group__grid-row" role="row">
-            <span role="cell"><ErpStatusBadge :status="line.status"/></span>
-            <span role="cell">{{ formatArea(line.area) }}</span>
-            <span role="cell">{{ formatAmount(line.amountWithVat) }}</span>
+            <span class="id-group__status" role="cell" data-label="Статус"><ErpStatusBadge :status="line.status"/></span>
+            <span class="id-group__area" role="cell" data-label="Площадь">{{ formatArea(line.area) }}</span>
+            <span class="id-group__amount" role="cell" data-label="Стоимость с НДС">{{ formatAmount(line.amountWithVat) }}</span>
           </div>
         </div>
       </article>
@@ -134,31 +134,54 @@ const groups = computed(() => groupIdByContract(rows.value))
   &:last-child
     border-bottom: 0
 
-  // min-width: 0 оставляем — без него колонка не сожмётся до своей доли и
-  // вытолкнет соседние. А overflow-wrap здесь больше нет: колонку занимает
-  // плашка статуса, она считает перенос сама, и правило родителя перебивало
-  // её по специфичности, разрывая слова посреди («Устранени/е»).
-  span:first-child
-    min-width: 0
+.id-group__status
+  min-width: 0
 
-  span:not(:first-child)
-    text-align: right
-    // Площадь и стоимость не переносим по разрядам: иначе строка станет
-    // выше и блоки договоров разъедутся по вертикали.
-    white-space: nowrap
-    font-variant-numeric: tabular-nums
-    font-weight: 600
+  :deep(.erp-status-badge)
+    text-align: left
 
-@media (max-width: 480px)
-  .id-group__grid-head,
+.id-group__area,
+.id-group__amount
+  text-align: right
+  white-space: nowrap
+  font-variant-numeric: tabular-nums
+  font-weight: 600
+
+@media (max-width: 600px)
+  .id-group__grid-head
+    display: none
+
   .id-group__grid-row
-    // Площади бывают дробными («143 868,4») и занимают почти столько же,
-    // сколько стоимость: узкая колонка под них наезжала на соседнюю.
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.7fr) minmax(0, 0.95fr)
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)
+    grid-template-areas: "status status" "area amount"
+    gap: 10px 14px
+    align-items: center
+    padding: 14px 0
+
+  .id-group__status
+    grid-area: status
+
+  .id-group__area
+    grid-area: area
+
+  .id-group__amount
+    grid-area: amount
+
+  .id-group__grid-row [data-label]::before
+    display: block
+    margin-bottom: 3px
+    color: var(--color-text-secondary)
+    content: attr(data-label)
+    font-size: 11px
+    font-weight: 600
+    line-height: 1.2
+
+  .id-group__area::before,
+  .id-group__amount::before
+    text-align: right
 
 @media (max-width: 360px)
   .id-group__grid-head,
   .id-group__grid-row
-    gap: 6px
-    font-size: 11px
+    gap: 8px 10px
 </style>
