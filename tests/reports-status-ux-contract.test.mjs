@@ -8,7 +8,9 @@ const idPage = await readFile(new URL('../app/pages/reports-id.vue', import.meta
 
 test('плашка статуса остаётся читаемой на телефоне, а не ужимается ради трёх колонок', () => {
     assert.match(badge, /min-height:\s*28px/)
-    assert.match(badge, /font-size:\s*14px/)
+    assert.match(badge, /font-size:\s*13px/)
+    // Цвет заливки уже несёт смысл — жирный текст поверх него делал список шумным.
+    assert.match(badge, /font-weight:\s*500/)
     assert.match(badge, /padding:\s*4px\s+10px/)
 })
 
