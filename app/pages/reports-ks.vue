@@ -72,14 +72,14 @@ const groups = computed(() => groupKsByContract(rows.value))
             <span role="columnheader">Статус</span>
           </div>
           <div v-for="(line, index) in group.rows" :key="`${line.number}-${index}`" class="ks-group__grid-row" role="row">
-            <span role="cell">{{ line.number }}</span>
-            <span role="cell">{{ formatAmount(line.amountWithVat) }}</span>
-            <span role="cell"><ErpStatusBadge :status="line.status"/></span>
+            <span class="ks-group__number" role="cell" data-label="КС">{{ line.number }}</span>
+            <span class="ks-group__amount" role="cell" data-label="Сумма с НДС">{{ formatAmount(line.amountWithVat) }}</span>
+            <span class="ks-group__status" role="cell" data-label="Статус"><ErpStatusBadge :status="line.status"/></span>
           </div>
           <div class="ks-group__grid-row ks-group__grid-row--total" role="row">
-            <span role="cell">Итого</span>
-            <span role="cell">{{ formatAmount(group.totalAmountWithVat) }}</span>
-            <span role="cell"/>
+            <span class="ks-group__number" role="cell">Итого</span>
+            <span class="ks-group__amount" role="cell">{{ formatAmount(group.totalAmountWithVat) }}</span>
+            <span class="ks-group__status" role="cell"/>
           </div>
         </div>
       </article>
@@ -133,18 +133,27 @@ const groups = computed(() => groupKsByContract(rows.value))
   color: var(--color-text)
   border-bottom: 0.5px solid rgba(60, 60, 67, 0.08)
 
-  span:first-child
+.ks-group__number
+  min-width: 0
+
+.ks-group__amount,
+.ks-group__status
+  text-align: right
+  font-variant-numeric: tabular-nums
+  font-weight: 600
+
+.ks-group__amount
+  white-space: nowrap
+
+.ks-group__status
+  min-width: 0
+
+  :deep(.erp-status-badge)
+    text-align: left
+
+.ks-group__grid-row
+  .ks-group__number
     min-width: 0
-
-  span:not(:first-child)
-    text-align: right
-    font-variant-numeric: tabular-nums
-    font-weight: 600
-
-  // Только сумма: статус — текст, ему перенос нужен, иначе «На согласовании»
-  // вылезет за край карточки на телефоне.
-  span:nth-child(2)
-    white-space: nowrap
 
   &--total
     border-bottom: 0
@@ -154,17 +163,46 @@ const groups = computed(() => groupKsByContract(rows.value))
     span
       font-weight: 700
 
-@media (max-width: 480px)
-  .ks-group__grid-head,
+@media (max-width: 600px)
+  .ks-group__grid-head
+    display: none
+
   .ks-group__grid-row
-    grid-template-columns: minmax(0, 0.5fr) minmax(0, 1fr) minmax(0, 1fr)
+    grid-template-columns: minmax(0, 1fr) auto
+    grid-template-areas: "number amount" "status status"
+    gap: 10px 14px
+    align-items: center
+    padding: 14px 0
+
+    &--total
+      grid-template-areas: "number amount"
+
+  .ks-group__number
+    grid-area: number
+
+  .ks-group__amount
+    grid-area: amount
+
+  .ks-group__status
+    grid-area: status
+    text-align: left
+
+  .ks-group__grid-row:not(.ks-group__grid-row--total) [data-label]::before
+    display: block
+    margin-bottom: 3px
+    color: var(--color-text-secondary)
+    content: attr(data-label)
+    font-size: 11px
+    font-weight: 600
+    line-height: 1.2
+
+  .ks-group__amount::before
+    text-align: right
 
 
 // На узких экранах кегль меньше, но колонки те же: сумма в одну строку
 // важнее размера шрифта, а перенос сдвинул бы строки соседних блоков.
 @media (max-width: 360px)
-  .ks-group__grid-head,
   .ks-group__grid-row
-    gap: 6px
-    font-size: 11px
+    gap: 8px 10px
 </style>
