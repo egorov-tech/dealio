@@ -75,7 +75,7 @@ const groups = computed(() => groupIdByContract(rows.value))
             <span role="columnheader">Стоимость с НДС</span>
           </div>
           <div v-for="(line, index) in group.rows" :key="`${line.status}-${index}`" class="id-group__grid-row" role="row">
-            <span role="cell">{{ line.status }}</span>
+            <span role="cell"><ErpStatusBadge :status="line.status"/></span>
             <span role="cell">{{ formatArea(line.area) }}</span>
             <span role="cell">{{ formatAmount(line.amountWithVat) }}</span>
           </div>
@@ -111,7 +111,7 @@ const groups = computed(() => groupIdByContract(rows.value))
 .id-group__grid-head,
 .id-group__grid-row
   display: grid
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.7fr) minmax(0, 1fr)
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.65fr) minmax(0, 1fr)
   gap: 8px
   align-items: baseline
 
@@ -134,8 +134,11 @@ const groups = computed(() => groupIdByContract(rows.value))
   &:last-child
     border-bottom: 0
 
+  // min-width: 0 оставляем — без него колонка не сожмётся до своей доли и
+  // вытолкнет соседние. А overflow-wrap здесь больше нет: колонку занимает
+  // плашка статуса, она считает перенос сама, и правило родителя перебивало
+  // её по специфичности, разрывая слова посреди («Устранени/е»).
   span:first-child
-    overflow-wrap: anywhere
     min-width: 0
 
   span:not(:first-child)
@@ -151,7 +154,7 @@ const groups = computed(() => groupIdByContract(rows.value))
   .id-group__grid-row
     // Площади бывают дробными («143 868,4») и занимают почти столько же,
     // сколько стоимость: узкая колонка под них наезжала на соседнюю.
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1.05fr)
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.7fr) minmax(0, 0.95fr)
 
 @media (max-width: 360px)
   .id-group__grid-head,

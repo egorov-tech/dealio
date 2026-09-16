@@ -68,17 +68,46 @@ $payload = erp_reports_payload($decodedFull);
 expect_reports($payload['summary']['productionRub'] === 12250994.0, 'Summary must total the monthly TP');
 expect_reports(!array_key_exists('productionTotalRub', $payload['summary']), 'Summary must not mix the all-period columns into monthly totals');
 
-$decodedId = erp_reports_decode_id_bridge(json_encode([
-    'ok' => true,
-    'data' => ['rows' => [[
-        'contract' => 'Договор 1',
-        'status' => 'Подписана',
-        'area' => '150 000',
-        'amountWithVat' => '480 000 000',
-    ]]],
-], JSON_THROW_ON_ERROR));
-expect_reports($decodedId['rows'][0]['area'] === 150000.0, 'ID rows must carry the area column');
-expect_reports($decodedId['rows'][0]['amountWithVat'] === 480000000.0, 'ID rows must carry the cost with VAT');
+// КС/ИД больше не читаются с моста — источник таблицы erp_pto_ks/erp_pto_ed
+// (раздел «ПТО»), их строки размечает erp_reports_ks_row/erp_reports_id_row.
+$contractLabel = erp_reports_contract_label(['contract_internal_number' => '274', 'customer' => 'ООО «Лимак»']);
+expect_reports($contractLabel === '274 · ООО «Лимак»', 'Contract label must join internal number with the customer');
+expect_reports(
+    erp_reports_contract_label(['contract_internal_number' => '274', 'customer' => '']) === '274',
+    'Contract label must fall back to the bare internal number without a customer'
+);
+expect_reports(erp_reports_contract_label(['contract_internal_number' => '']) === '', 'Contract label needs an internal number');
+
+// Значения из выгрузки несут невидимые хвосты (тот же класс бага, что уже
+// достал diff-уведомления раздела «ПТО» — см. erp_pto_clean в Pto.php).
+expect_reports(erp_reports_clean_text("Нет ПОЗ
+") === 'Нет ПОЗ', 'Report status text must drop a trailing carriage return');
+
+$ksRow = erp_reports_ks_row([
+    'contract_internal_number' => '274',
+    'customer' => 'ООО «Лимак»',
+    'number' => '6',
+    'cost' => '196604228.00',
+    'status' => "На согласовании
+",
+]);
+expect_reports($ksRow['contract'] === '274 · ООО «Лимак»', 'KS row must carry the joined contract label');
+expect_reports($ksRow['number'] === '6', 'KS row must carry the act number');
+expect_reports($ksRow['amountWithVat'] === 196604228.0, 'KS row must carry the cost with VAT as a float');
+expect_reports($ksRow['status'] === 'На согласовании', 'KS row status must be cleaned of invisible tails');
+expect_reports(erp_reports_ks_row(['contract_internal_number' => '274', 'number' => '', 'status' => 'X']) === null, 'KS row without a number must be dropped');
+
+$idRow = erp_reports_id_row([
+    'contract_internal_number' => '305',
+    'customer' => null,
+    'volume' => '1114.130',
+    'cost' => '4203896.35',
+    'status' => 'Подписана',
+]);
+expect_reports($idRow['contract'] === '305', 'ID row must fall back to the bare internal number without a customer');
+expect_reports($idRow['area'] === 1114.13, 'ID row must expose volume as the report area column');
+expect_reports($idRow['amountWithVat'] === 4203896.35, 'ID row must carry the cost with VAT as a float');
+expect_reports(erp_reports_id_row(['contract_internal_number' => '305', 'volume' => null, 'cost' => null, 'status' => '']) === null, 'ID row without a status must be dropped');
 
 // Причина отказа от источника не стирается: без неё «отчёты не видят
 // данные» невозможно диагностировать ни с экрана, ни из логов.
@@ -93,14 +122,6 @@ try {
 }
 expect_reports(str_contains($reasonSeen, 'Не найден лист отчётов'), 'Bridge failure reason must survive decoding');
 expect_reports(str_contains($reasonSeen, 'Есть: Лист 15'), 'Bridge failure must keep the list of real sheet names');
-
-$ksReason = '';
-try {
-    erp_reports_decode_ks_bridge(json_encode(['ok' => false, 'error' => 'Нет доступа к отчётам'], JSON_THROW_ON_ERROR));
-} catch (RuntimeException $error) {
-    $ksReason = $error->getMessage();
-}
-expect_reports($ksReason === 'Нет доступа к отчётам', 'KS bridge must surface the source reason too');
 
 expect_reports(
     erp_reports_failure_message(new RuntimeException('Не найден столбец «ТП за месяц, тн»')) === 'Не найден столбец «ТП за месяц, тн»',

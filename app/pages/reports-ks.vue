@@ -74,7 +74,7 @@ const groups = computed(() => groupKsByContract(rows.value))
           <div v-for="(line, index) in group.rows" :key="`${line.number}-${index}`" class="ks-group__grid-row" role="row">
             <span role="cell">{{ line.number }}</span>
             <span role="cell">{{ formatAmount(line.amountWithVat) }}</span>
-            <span role="cell">{{ line.status }}</span>
+            <span role="cell"><ErpStatusBadge :status="line.status"/></span>
           </div>
           <div class="ks-group__grid-row ks-group__grid-row--total" role="row">
             <span role="cell">Итого</span>
