@@ -83,63 +83,71 @@ function erp_reports_decode_bridge(string $body): array
 }
 
 /**
+ * Значения из таблиц раздела «ПТО» (erp_pto_ed/erp_pto_ks) несут те же
+ * невидимые хвосты, что достают их собственные экраны (см. erp_pto_clean в
+ * Pto.php) — здесь своя копия: Reports.php не зависит от Pto.php, тест этого
+ * файла требует его в изоляции (tests/php/reports-test.php).
+ */
+function erp_reports_clean_text(mixed $value): string
+{
+    return trim(str_replace(["\r", "\n"], ' ', (string) $value));
+}
+
+/**
+ * Человекочитаемая метка договора для группировки строк КС/ИД.
+ *
+ * У таблиц ПТО нет собственного текстового названия договора — только
+ * внутренний номер (contract_internal_number), а старый лист Google
+ * присылал готовую подпись. Дополняем номер именем заказчика через JOIN на
+ * erp_contracts, иначе шапка карточки на экране отчётов превратилась бы в
+ * голое «274» без контекста, кто это.
+ */
+function erp_reports_contract_label(array $row): string
+{
+    $internal = trim((string) ($row['contract_internal_number'] ?? ''));
+    if ($internal === '') {
+        return '';
+    }
+    $customer = trim((string) ($row['customer'] ?? ''));
+    return $customer !== '' ? "{$internal} · {$customer}" : $internal;
+}
+
+/**
  * Строки листов «КС» и «ИД» группируются по договору уже на клиенте (см.
  * groupReportsByContract в app/utils/erp-report-grouping.ts) — здесь только
- * нормализация чисел и отсев пустых строк, тем же приёмом, что и у
- * erp_reports_decode_bridge.
+ * нормализация значений и отсев пустых строк.
  */
-function erp_reports_decode_ks_bridge(string $body): array
+function erp_reports_ks_row(array $row): ?array
 {
-    $rows = erp_reports_decode_generic_bridge($body);
-    $normalizedRows = [];
-    foreach ($rows as $row) {
-        $contract = trim((string) ($row['contract'] ?? ''));
-        $number = trim((string) ($row['number'] ?? ''));
-        $status = trim((string) ($row['status'] ?? ''));
-        if ($contract === '' || $number === '') {
-            continue;
-        }
-        $normalizedRows[] = [
-            'contract' => $contract,
-            'number' => $number,
-            'amountWithVat' => erp_reports_number($row['amountWithVat'] ?? 0),
-            'status' => $status,
-        ];
+    $contract = erp_reports_contract_label($row);
+    $number = erp_reports_clean_text($row['number'] ?? '');
+    if ($contract === '' || $number === '') {
+        return null;
     }
-
-    return ['rows' => $normalizedRows];
+    return [
+        'contract' => $contract,
+        'number' => $number,
+        'amountWithVat' => $row['cost'] !== null ? (float) $row['cost'] : 0.0,
+        'status' => erp_reports_clean_text($row['status'] ?? ''),
+    ];
 }
 
-function erp_reports_decode_id_bridge(string $body): array
+function erp_reports_id_row(array $row): ?array
 {
-    $rows = erp_reports_decode_generic_bridge($body);
-    $normalizedRows = [];
-    foreach ($rows as $row) {
-        $contract = trim((string) ($row['contract'] ?? ''));
-        $status = trim((string) ($row['status'] ?? ''));
-        if ($contract === '' || $status === '') {
-            continue;
-        }
-        $normalizedRows[] = [
-            'contract' => $contract,
-            'status' => $status,
-            'area' => erp_reports_number($row['area'] ?? 0),
-            'amountWithVat' => erp_reports_number($row['amountWithVat'] ?? 0),
-        ];
+    $contract = erp_reports_contract_label($row);
+    $status = erp_reports_clean_text($row['status'] ?? '');
+    if ($contract === '' || $status === '') {
+        return null;
     }
-
-    return ['rows' => $normalizedRows];
-}
-
-/** Общая часть декодирования моста — то, что не зависит от формы строки. */
-function erp_reports_decode_generic_bridge(string $body): array
-{
-    $rows = erp_reports_bridge_data($body)['rows'] ?? null;
-    if (!is_array($rows)) {
-        throw new RuntimeException('Источник отчётов вернул неполные данные');
-    }
-
-    return array_values(array_filter($rows, 'is_array'));
+    return [
+        'contract' => $contract,
+        'status' => $status,
+        // Площадь в отчёте — тот же объём работ, что «Объём» на карточке
+        // ИД раздела «ПТО» (app/pages/pto-ed.vue): одна физическая величина,
+        // две подписи в разных местах ещё со времён листа Google.
+        'area' => $row['volume'] !== null ? (float) $row['volume'] : 0.0,
+        'amountWithVat' => $row['cost'] !== null ? (float) $row['cost'] : 0.0,
+    ];
 }
 
 /**
@@ -242,30 +250,40 @@ function erp_reports_current(PDO $pdo, array $config, string $requestId): void
     }
 }
 
-/** Строки листа «КС» — сгруппируются по договору на клиенте. */
+/**
+ * Строки КС — источник erp_pto_ks (раздел «ПТО»), а не Google-таблица: то
+ * же событие данных, без сетевого моста и его задержек на холодном старте.
+ * Сгруппируются по договору уже на клиенте.
+ */
 function erp_reports_ks_current(PDO $pdo, array $config, string $requestId): void
 {
     $actor = erp_require_user($pdo, $config, $requestId);
     erp_require_permission($pdo, $actor, 'reports', $requestId);
 
-    try {
-        $source = erp_reports_fetch_bridge($config, 'reportsKs', 'erp_reports_decode_ks_bridge');
-        erp_json(200, ['ok' => true, 'data' => ['rows' => $source['rows']]]);
-    } catch (RuntimeException $error) {
-        erp_json(503, erp_error_payload('reports_unavailable', erp_reports_failure_message($error), $requestId));
-    }
+    $rows = $pdo->query(
+        'SELECT k.contract_internal_number, k.number, k.cost, k.status, c.customer
+         FROM erp_pto_ks k
+         LEFT JOIN erp_contracts c ON c.internal_number = k.contract_internal_number
+         ORDER BY k.id DESC'
+    )->fetchAll(PDO::FETCH_ASSOC);
+
+    $data = array_values(array_filter(array_map('erp_reports_ks_row', $rows)));
+    erp_json(200, ['ok' => true, 'data' => ['rows' => $data]]);
 }
 
-/** Строки листа «ИД» — сгруппируются по договору на клиенте. */
+/** Строки ИД — источник erp_pto_ed, тем же приёмом, что и КС выше. */
 function erp_reports_id_current(PDO $pdo, array $config, string $requestId): void
 {
     $actor = erp_require_user($pdo, $config, $requestId);
     erp_require_permission($pdo, $actor, 'reports', $requestId);
 
-    try {
-        $source = erp_reports_fetch_bridge($config, 'reportsId', 'erp_reports_decode_id_bridge');
-        erp_json(200, ['ok' => true, 'data' => ['rows' => $source['rows']]]);
-    } catch (RuntimeException $error) {
-        erp_json(503, erp_error_payload('reports_unavailable', erp_reports_failure_message($error), $requestId));
-    }
+    $rows = $pdo->query(
+        'SELECT e.contract_internal_number, e.volume, e.cost, e.status, c.customer
+         FROM erp_pto_ed e
+         LEFT JOIN erp_contracts c ON c.internal_number = e.contract_internal_number
+         ORDER BY e.id DESC'
+    )->fetchAll(PDO::FETCH_ASSOC);
+
+    $data = array_values(array_filter(array_map('erp_reports_id_row', $rows)));
+    erp_json(200, ['ok' => true, 'data' => ['rows' => $data]]);
 }

@@ -155,13 +155,16 @@ export async function fetchReportsCurrentViaApi(): Promise<ErpCurrentReport> {
     return erpApiRequest<ErpCurrentReport>('reports/current', {timeoutMs: ERP_REPORTS_TIMEOUT_MS})
 }
 
+// КС и ИД читаются из своих таблиц (erp_pto_ks/erp_pto_ed), не из
+// Google-таблицы через мост — холодный старт Apps Script им не грозит,
+// хватает общего таймаута запроса.
 export async function fetchReportsKsViaApi(): Promise<ErpKsRow[]> {
-    const data = await erpApiRequest<{rows: ErpKsRow[]}>('reports/ks', {timeoutMs: ERP_REPORTS_TIMEOUT_MS})
+    const data = await erpApiRequest<{rows: ErpKsRow[]}>('reports/ks')
     return data.rows ?? []
 }
 
 export async function fetchReportsIdViaApi(): Promise<ErpIdRow[]> {
-    const data = await erpApiRequest<{rows: ErpIdRow[]}>('reports/id', {timeoutMs: ERP_REPORTS_TIMEOUT_MS})
+    const data = await erpApiRequest<{rows: ErpIdRow[]}>('reports/id')
     return data.rows ?? []
 }
 

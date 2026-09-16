@@ -10,6 +10,7 @@ const page = await readFile(new URL('../app/pages/reports-month.vue', import.met
 const fullPage = await readFile(new URL('../app/pages/reports-full.vue', import.meta.url), 'utf8')
 const ksPage = await readFile(new URL('../app/pages/reports-ks.vue', import.meta.url), 'utf8')
 const idPage = await readFile(new URL('../app/pages/reports-id.vue', import.meta.url), 'utf8')
+const statusBadge = await readFile(new URL('../app/components/erp/ErpStatusBadge.vue', import.meta.url), 'utf8')
 const summary = await readFile(new URL('../app/components/erp/ErpReportsSummary.vue', import.meta.url), 'utf8').catch(() => '')
 const table = await readFile(new URL('../app/components/erp/ErpReportsTable.vue', import.meta.url), 'utf8').catch(() => '')
 const grouping = await readFile(new URL('../app/utils/erp-report-grouping.ts', import.meta.url), 'utf8')
@@ -185,42 +186,45 @@ test('КС и ИД — свои GAS-действия, свои PHP-маршру�
   }
 })
 
-test('КС: договор из «Договор», а не из колонки нумерации, шапка «КС», «Итого»', () => {
-  // Буквы из ТЗ сдвинуты на колонку: первым на листе идёт «ID», поэтому
-  // договор лежит в B. По буквам договором становился номер строки, а
-  // суммой — статус, поэтому читаем по заголовкам со сдвинутым запасным.
-  const ks = gas.slice(gas.indexOf('function normalizeKsRows_'))
-  const body = ks.slice(0, ks.indexOf('\n}\n'))
-  assert.match(body, /columnIndexOr_\(header, \['Договор'\], 1\)/)
-  assert.match(body, /columnIndexOr_\(header, \['Номер КС', '№'\], 2\)/)
-  assert.match(body, /columnIndexOr_\(header, \['Стоимость с НДС', 'Сумма с НДС'\], 3\)/)
-  assert.match(body, /columnIndexOr_\(header, \['Статус'\], 4\)/)
-  assert.doesNotMatch(body, /requireColumn_/)
+test('КС: источник — erp_pto_ks, а не Google-таблица; шапка «КС», «Итого»', () => {
+  // Раздел «ПТО» ведёт эти данные сам (erp_pto_ks) — до отчётов они
+  // доезжают прямым SQL-запросом, без сетевого моста и его отказов.
+  const handler = reports.slice(reports.indexOf('function erp_reports_ks_current('))
+  const body = handler.slice(0, handler.indexOf('\n}\n'))
+  assert.match(body, /FROM erp_pto_ks k/)
+  assert.match(body, /LEFT JOIN erp_contracts c ON c\.internal_number = k\.contract_internal_number/)
+  assert.match(body, /array_map\('erp_reports_ks_row', \$rows\)/)
+  assert.doesNotMatch(body, /erp_reports_fetch_bridge/)
 
-  assert.match(reports, /function erp_reports_decode_ks_bridge/)
+  const row = reports.slice(reports.indexOf('function erp_reports_ks_row('))
+  const rowBody = row.slice(0, row.indexOf('\n}\n'))
+  assert.match(rowBody, /erp_reports_contract_label\(\$row\)/)
+  assert.match(rowBody, /erp_reports_clean_text\(\$row\['status'\] \?\? ''\)/)
+
   assert.match(api, /export interface ErpKsRow/)
   assert.match(ksPage, /groupKsByContract/)
   assert.match(ksPage, /Итого/)
   assert.match(ksPage, /<span role="columnheader">КС<\/span>/)
 })
 
-test('ИД: договор из «Договор», а не шифр АОСР; площадь и стоимость, без «Итого»', () => {
-  // В ТЗ договор указан в колонке B, но там лежит шифр АОСР вида
-  // «GLE-(L1-05-010)-2600-ОЗ-1.3»: договор — в C, площадь и стоимость — в
-  // F и G, статус — в H.
-  const id = gas.slice(gas.indexOf('function normalizeIdRows_'))
-  const body = id.slice(0, id.indexOf('\n}\n'))
-  assert.match(body, /columnIndexOr_\(header, \['Договор'\], 2\)/)
-  assert.match(body, /columnIndexOr_\(header, \['Статус'\], 7\)/)
-  assert.match(body, /columnIndexOr_\(header, \['Площадь'\], 5\)/)
-  assert.match(body, /columnIndexOr_\(header, \['Стоимость', 'Стоимость с НДС', 'Сумма с НДС'\], 6\)/)
+test('ИД: источник — erp_pto_ed; площадь = «Объём» карточки ПТО, без «Итого»', () => {
+  const handler = reports.slice(reports.indexOf('function erp_reports_id_current('))
+  const body = handler.slice(0, handler.indexOf('\n}\n'))
+  assert.match(body, /FROM erp_pto_ed e/)
+  assert.match(body, /LEFT JOIN erp_contracts c ON c\.internal_number = e\.contract_internal_number/)
+  assert.match(body, /array_map\('erp_reports_id_row', \$rows\)/)
 
-  assert.match(reports, /function erp_reports_decode_id_bridge/)
+  const row = reports.slice(reports.indexOf('function erp_reports_id_row('))
+  const rowBody = row.slice(0, row.indexOf('\n}\n'))
+  // «Площадь» в отчёте — тот же столбец, что «Объём» на карточке ИД раздела
+  // «ПТО», не отдельная колонка: у erp_pto_ed своего поля area нет.
+  assert.match(rowBody, /'area' => \$row\['volume'\] !== null \? \(float\) \$row\['volume'\] : 0\.0/)
+
   assert.match(api, /export interface ErpIdRow/)
   assert.match(api, /area: number/)
   assert.match(idPage, /groupIdByContract/)
-  // Внутри договора — строки статусов, а не поштучные акты: на реальном
-  // листе их под две сотни на договор.
+  // Внутри договора — строки статусов, а не поштучные акты: их под четыре
+  // сотни на всю базу, показывать поштучно бессмысленно.
   assert.match(ksIdGrouping, /existing\.status === row\.status/)
   assert.match(ksIdGrouping, /line\.area \+= row\.area/)
   assert.match(ksIdGrouping, /line\.amountWithVat \+= row\.amountWithVat/)
@@ -228,6 +232,62 @@ test('ИД: договор из «Договор», а не шифр АОСР; �
   assert.match(idPage, /<span role="columnheader">Стоимость с НДС<\/span>/)
   // Итоговой строки в ИД по ТЗ нет — только строки статусов.
   assert.doesNotMatch(idPage, /Итого/)
+})
+
+test('КС/ИД: договор группируется по человекочитаемой метке — номер плюс заказчик', () => {
+  // Таблицы ПТО хранят только внутренний номер договора, а не готовую
+  // подпись, как раньше был лист Google — «274» без контекста в шапке
+  // карточки был бы шагом назад для менеджера, который номера не помнит.
+  const label = reports.slice(reports.indexOf('function erp_reports_contract_label('))
+  const body = label.slice(0, label.indexOf('\n}\n'))
+  assert.match(body, /\$customer !== '' \? "\{\$internal\} · \{\$customer\}" : \$internal/)
+})
+
+test('невидимый хвост из выгрузки не превращает статус в кашу на экране отчётов', () => {
+  // Тот же класс бага, что уже чинили в разделе «ПТО» (см. erp_pto_clean в
+  // Pto.php) — Reports.php своя копия, потому что не зависит от Pto.php.
+  assert.match(reports, /function erp_reports_clean_text/)
+  for (const fn of ['erp_reports_ks_row', 'erp_reports_id_row']) {
+    const body = reports.slice(reports.indexOf(`function ${fn}(`))
+    assert.match(body.slice(0, body.indexOf('\n}\n')), /erp_reports_clean_text/)
+  }
+})
+
+test('плашка статуса — палитра из ТЗ, контур не даёт слиться с белой карточкой', () => {
+  for (const [status, fill] of [
+    ['Устранение замечаний', '#fff2cc'],
+    ['На проверке ГСП', '#d9e1f2'],
+    ['На проверке СК', '#d9e1f2'],
+    ['Не хватает Инспекций', '#fff2cc'],
+    ['Не хватает АВК', '#fff2cc'],
+    ['Согласована', '#e2efda'],
+    ['Подписана', '#a9d08e'],
+    ['Нет ПОЗ', '#ed7d31'],
+    ['Подготовка', '#fff2cc'],
+  ]) {
+    const tone = statusBadge.match(new RegExp(`'${status}': '(\\w+)'`))
+    assert.ok(tone, `статусу «${status}» не назначен тон`)
+    // Каждый блок «&--tone» кончается ровно перед следующим «&--» или
+    // закрывающим тегом стиля — так же надёжно, как искать по границе
+    // объявления, но без риска зацепить произвольную длину блока.
+    const ruleMatch = statusBadge.match(new RegExp(`&--${tone[1]}\\n(?:.*\\n)*?(?=\\n  &--|\\n<\\/style>)`))
+    assert.ok(ruleMatch, `нет CSS-блока для тона «${tone[1]}»`)
+    assert.ok(ruleMatch[0].includes(`background: ${fill}`), `«${status}» должен заливаться ${fill}`)
+    assert.match(ruleMatch[0], /border: 1px solid #/)
+  }
+
+  // Тёмные чернила держат контраст на самой насыщенной заливке (#ed7d31):
+  // белый текст на ней даёт 2,8:1 и нечитаем.
+  assert.match(statusBadge, /color: #16202e/)
+
+  // Статус вне палитры ТЗ («На согласовании» у КС, «Забрал ВЛС»/«Гарантийный
+  // объём» у ИД — реальные значения в базе) получает нейтральный тон, а не
+  // остаётся без цвета.
+  assert.match(statusBadge, /STATUS_TONE\[props\.status\] \?\? 'neutral'/)
+  assert.match(statusBadge, /&--neutral[\s\S]{0,80}border: 1px solid/)
+
+  assert.match(idPage, /<ErpStatusBadge :status="line\.status"\/>/)
+  assert.match(ksPage, /<ErpStatusBadge :status="line\.status"\/>/)
 })
 
 test('лист без шапки не теряет первую строку при чтении по буквам', () => {
@@ -274,12 +334,13 @@ test('«не вижу данные» диагностируется: лист и
 })
 
 test('холодный старт источника не обрывается таймаутом на середине', () => {
-  // Apps Script будит проект и открывает таблицу секунд двадцать. Общий
-  // клиентский таймаут в 12 секунд и прежние 10 секунд у моста рвали такой
-  // запрос, и снаружи это выглядело зависшей загрузкой, а не ошибкой.
+  // Apps Script будит проект и открывает таблицу секунд двадцать — это
+  // касается только «Отчёта месяца»/«Полного отчёта» (Лист15), КС и ИД с
+  // моста больше не читаются и своего таймаута не держат.
   assert.match(api, /const ERP_REPORTS_TIMEOUT_MS = 50_000/)
-  for (const route of ['reports\\/current', 'reports\\/ks', 'reports\\/id']) {
-    assert.match(api, new RegExp(`'${route}', \\{timeoutMs: ERP_REPORTS_TIMEOUT_MS\\}`))
+  assert.match(api, /'reports\/current', \{timeoutMs: ERP_REPORTS_TIMEOUT_MS\}/)
+  for (const route of ['reports\\/ks', 'reports\\/id']) {
+    assert.doesNotMatch(api, new RegExp(`'${route}', \\{timeoutMs: ERP_REPORTS_TIMEOUT_MS\\}`))
   }
   assert.match(reports, /CURLOPT_CONNECTTIMEOUT => 10/)
   assert.match(reports, /CURLOPT_TIMEOUT => 45/)
