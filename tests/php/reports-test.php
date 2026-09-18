@@ -70,11 +70,13 @@ expect_reports(!array_key_exists('productionTotalRub', $payload['summary']), 'Su
 
 // КС/ИД больше не читаются с моста — источник таблицы erp_pto_ks/erp_pto_ed
 // (раздел «ПТО»), их строки размечает erp_reports_ks_row/erp_reports_id_row.
-$contractLabel = erp_reports_contract_label(['contract_internal_number' => '274', 'customer' => 'ООО «Лимак»']);
-expect_reports($contractLabel === '274 · ООО «Лимак»', 'Contract label must join internal number with the customer');
+// В отчётах рабочий номер нужен вместе с предметом договора: заказчик не
+// различает проекты одного контрагента, а «274 - Лимак» различает.
+$contractLabel = erp_reports_contract_label(['contract_internal_number' => '274', 'subject' => 'Лимак', 'customer' => 'ООО «Лимак»']);
+expect_reports($contractLabel === '274 - Лимак', 'Contract label must join internal number with the contract subject through a hyphen');
 expect_reports(
-    erp_reports_contract_label(['contract_internal_number' => '274', 'customer' => '']) === '274',
-    'Contract label must fall back to the bare internal number without a customer'
+    erp_reports_contract_label(['contract_internal_number' => '274', 'subject' => '', 'customer' => 'ООО «Лимак»']) === '274 - ООО «Лимак»',
+    'Contract label must fall back to the customer only when the subject is absent'
 );
 expect_reports(erp_reports_contract_label(['contract_internal_number' => '']) === '', 'Contract label needs an internal number');
 
@@ -85,13 +87,14 @@ expect_reports(erp_reports_clean_text("Нет ПОЗ
 
 $ksRow = erp_reports_ks_row([
     'contract_internal_number' => '274',
+    'subject' => 'Лимак',
     'customer' => 'ООО «Лимак»',
     'number' => '6',
     'cost' => '196604228.00',
     'status' => "На согласовании
 ",
 ]);
-expect_reports($ksRow['contract'] === '274 · ООО «Лимак»', 'KS row must carry the joined contract label');
+expect_reports($ksRow['contract'] === '274 - Лимак', 'KS row must carry the internal number and contract subject');
 expect_reports($ksRow['number'] === '6', 'KS row must carry the act number');
 expect_reports($ksRow['amountWithVat'] === 196604228.0, 'KS row must carry the cost with VAT as a float');
 expect_reports($ksRow['status'] === 'На согласовании', 'KS row status must be cleaned of invisible tails');
@@ -99,12 +102,13 @@ expect_reports(erp_reports_ks_row(['contract_internal_number' => '274', 'number'
 
 $idRow = erp_reports_id_row([
     'contract_internal_number' => '305',
+    'subject' => 'Линия 3',
     'customer' => null,
     'volume' => '1114.130',
     'cost' => '4203896.35',
     'status' => 'Подписана',
 ]);
-expect_reports($idRow['contract'] === '305', 'ID row must fall back to the bare internal number without a customer');
+expect_reports($idRow['contract'] === '305 - Линия 3', 'ID row must carry the internal number and contract subject');
 expect_reports($idRow['area'] === 1114.13, 'ID row must expose volume as the report area column');
 expect_reports($idRow['amountWithVat'] === 4203896.35, 'ID row must carry the cost with VAT as a float');
 expect_reports(erp_reports_id_row(['contract_internal_number' => '305', 'volume' => null, 'cost' => null, 'status' => '']) === null, 'ID row without a status must be dropped');
