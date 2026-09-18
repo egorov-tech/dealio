@@ -76,5 +76,6 @@ test('числа в таблицах не переносятся по разря
     }
     // В КС статус вынесен в отдельную мобильную строку, поэтому запрет нужен
     // только сумме, а не «второму span» старой табличной разметки.
-    assert.match(ks, /\.ks-group__amount\n\s+white-space: nowrap/)
+    const ksAmount = cssRule(ks, '.ks-group__amount')
+    assert.match(ksAmount, /white-space: nowrap/, 'КС: сумма должна оставаться в одну строку')
 })

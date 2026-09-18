@@ -98,9 +98,8 @@ function erp_reports_clean_text(mixed $value): string
  *
  * У таблиц ПТО нет собственного текстового названия договора — только
  * внутренний номер (contract_internal_number), а старый лист Google
- * присылал готовую подпись. Дополняем номер именем заказчика через JOIN на
- * erp_contracts, иначе шапка карточки на экране отчётов превратилась бы в
- * голое «274» без контекста, кто это.
+ * присылал готовую подпись. Дополняем номер предметом договора через JOIN на
+ * erp_contracts: так «305 - Линия 3» различает проекты одного заказчика.
  */
 function erp_reports_contract_label(array $row): string
 {
@@ -108,8 +107,12 @@ function erp_reports_contract_label(array $row): string
     if ($internal === '') {
         return '';
     }
+    $subject = trim((string) ($row['subject'] ?? ''));
+    if ($subject !== '') {
+        return "{$internal} - {$subject}";
+    }
     $customer = trim((string) ($row['customer'] ?? ''));
-    return $customer !== '' ? "{$internal} · {$customer}" : $internal;
+    return $customer !== '' ? "{$internal} - {$customer}" : $internal;
 }
 
 /**
@@ -261,7 +264,7 @@ function erp_reports_ks_current(PDO $pdo, array $config, string $requestId): voi
     erp_require_permission($pdo, $actor, 'reports', $requestId);
 
     $rows = $pdo->query(
-        'SELECT k.contract_internal_number, k.number, k.cost, k.status, c.customer
+        'SELECT k.contract_internal_number, k.number, k.cost, k.status, c.subject, c.customer
          FROM erp_pto_ks k
          LEFT JOIN erp_contracts c ON c.internal_number = k.contract_internal_number
          ORDER BY k.id DESC'
@@ -278,7 +281,7 @@ function erp_reports_id_current(PDO $pdo, array $config, string $requestId): voi
     erp_require_permission($pdo, $actor, 'reports', $requestId);
 
     $rows = $pdo->query(
-        'SELECT e.contract_internal_number, e.volume, e.cost, e.status, c.customer
+        'SELECT e.contract_internal_number, e.volume, e.cost, e.status, c.subject, c.customer
          FROM erp_pto_ed e
          LEFT JOIN erp_contracts c ON c.internal_number = e.contract_internal_number
          ORDER BY e.id DESC'
