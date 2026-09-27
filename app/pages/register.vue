@@ -2,7 +2,7 @@
 import {useErpEmployeeStore} from '~~/store/erp-employee.store'
 import {useErpApprovalsStore} from '~~/store/erp-approvals.store'
 import {useErpSupplyQueueStore} from '~~/store/erp-supply-queue.store'
-import {loginErpEmployee} from '~/utils/erp-sheets'
+import {loginErpEmployee, isErpDemoMode} from '~/utils/erp-sheets'
 import {useAppToast} from '~/composables/useAppToast'
 
 definePageMeta({layout: 'erp'})
@@ -10,6 +10,7 @@ definePageMeta({layout: 'erp'})
 const employeeStore = useErpEmployeeStore()
 const approvalsStore = useErpApprovalsStore()
 const supplyQueueStore = useErpSupplyQueueStore()
+const isDemo = isErpDemoMode()
 
 const pageTitle = ref(employeeStore.hasFio ? 'Профиль | ERP' : 'Вход | ERP')
 watch(() => employeeStore.hasFio, (hasFio) => {
@@ -73,6 +74,22 @@ const submit = async () => {
         password.value = ''
     } catch (loginError) {
         error.value = errorMessage(loginError, 'Не удалось войти')
+    } finally {
+        isLoading.value = false
+    }
+}
+
+const enterDemo = async () => {
+    isLoading.value = true
+    error.value = ''
+    try {
+        const profile = await loginErpEmployee('demo', 'demo')
+        employeeStore.setProfile(profile)
+        // Сразу в цех Колпино — рекрутер видит список бирок без лишних кликов.
+        employeeStore.setWorkshop('kolpino')
+        await router.push('/badges')
+    } catch (loginError) {
+        error.value = errorMessage(loginError, 'Не удалось открыть демо')
     } finally {
         isLoading.value = false
     }
@@ -180,7 +197,10 @@ const copyText = async (text: string, label: string) => {
   >
     <div class="login-card">
       <h2 class="login-card__title">Вход</h2>
-      <form class="register-form" @submit.prevent="submit">
+      <p v-if="isDemo" class="login-card__demo">
+        Публичное демо на синтетических данных — без доступа к таблице заказчика.
+      </p>
+      <form v-if="!isDemo" class="register-form" @submit.prevent="submit">
         <UiInput
             id="erp-login"
             v-model="loginField"
@@ -201,6 +221,12 @@ const copyText = async (text: string, label: string) => {
           Войти
         </UiButton>
       </form>
+      <div v-else class="register-form">
+        <p v-if="error" class="login-card__error">{{ error }}</p>
+        <UiButton block size="lg" :loading="isLoading" @click="enterDemo">
+          Открыть демо · бирки
+        </UiButton>
+      </div>
     </div>
   </ErpScreen>
 </template>
@@ -271,6 +297,17 @@ const copyText = async (text: string, label: string) => {
   letter-spacing: -0.3px
   margin: 0 0 14px
   color: var(--color-text)
+
+.login-card__demo
+  margin: 0 0 16px
+  font-size: 14px
+  line-height: 1.4
+  color: var(--color-text-secondary)
+
+.login-card__error
+  margin: 0 0 12px
+  font-size: 14px
+  color: var(--color-danger, #c62828)
 
 /* Нативные iOS-поля: filled без рамки, фокус подсвечивает синим */
 .login-card :deep(.ui-input__field)

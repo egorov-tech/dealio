@@ -7,13 +7,16 @@ export default defineNuxtConfig({
 
     runtimeConfig: {
         public: {
-            erpSpreadsheetId: process.env.NUXT_PUBLIC_ERP_SPREADSHEET_ID || '1HDj9ng5OdbgohhzdeP9LGVA-Fs_WI93m5IDWDdTXR-U',
-            erpIssueSheetGid: process.env.NUXT_PUBLIC_ERP_ISSUE_SHEET_GID || '1376055067',
+            // IDs таблицы только из env — в публичном репо дефолтов быть не должно.
+            erpSpreadsheetId: process.env.NUXT_PUBLIC_ERP_SPREADSHEET_ID || '',
+            erpIssueSheetGid: process.env.NUXT_PUBLIC_ERP_ISSUE_SHEET_GID || '',
             erpSheetsApiKey: process.env.NUXT_PUBLIC_ERP_SHEETS_API_KEY || '',
             erpGasUrl: process.env.NUXT_PUBLIC_ERP_GAS_URL || '',
             warehouseGasUrl: process.env.NUXT_PUBLIC_WAREHOUSE_GAS_URL || '',
             erpBackendMode: process.env.NUXT_PUBLIC_ERP_BACKEND_MODE || 'gas',
             erpApiBase: process.env.NUXT_PUBLIC_ERP_API_BASE || '/api',
+            // Публичное демо (GitHub Pages): логин без GAS/SQL, бирки из моков.
+            erpDemoMode: process.env.NUXT_PUBLIC_ERP_DEMO_MODE === 'true',
         },
     },
 

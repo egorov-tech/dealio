@@ -3,12 +3,20 @@ import {
     getErpGasUrl,
     getErpSheetsMode,
     saveErpGasUrl,
-    testErpGasConnection,DEFAULT_SPREADSHEET_ID
+    testErpGasConnection,
 } from '~/utils/erp-sheets'
 
 definePageMeta({layout: 'erp'})
 
 useSeoMeta({title: 'Подключение таблицы | ERP'})
+
+const runtimeConfig = useRuntimeConfig()
+const spreadsheetId = computed(() => String(runtimeConfig.public.erpSpreadsheetId || '').trim())
+const spreadsheetHref = computed(() =>
+    spreadsheetId.value
+        ? `https://docs.google.com/spreadsheets/d/${spreadsheetId.value}/edit`
+        : '',
+)
 
 const gasUrl = ref(getErpGasUrl())
 const testResult = ref('')
@@ -54,10 +62,12 @@ const runTest = async () => {
     <p class="setup-lead">
       Таблица:
       <a
-          :href="`https://docs.google.com/spreadsheets/d/${DEFAULT_SPREADSHEET_ID}/edit`"
+          v-if="spreadsheetHref"
+          :href="spreadsheetHref"
           target="_blank"
           rel="noopener"
       >Ведомости</a>
+      <span v-else>не задана в окружении (NUXT_PUBLIC_ERP_SPREADSHEET_ID)</span>
     </p>
 
     <div class="setup-card">
@@ -66,7 +76,8 @@ const runTest = async () => {
         Режим: <strong>{{ sheetsMode === 'csv' ? 'таблица (CSV)' : sheetsMode }}</strong>
       </p>
       <p class="setup-card__hint">
-        Лист «Выдача» уже читается напрямую — 681 бирка Колпино, 1038 Волхонка.
+        ID таблицы и листа задаются только через env на стенде/проде — в публичном
+        репозитории дефолтов нет.
       </p>
     </div>
 
