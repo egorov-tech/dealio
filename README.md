@@ -31,9 +31,13 @@
 Синтетические данные, без доступа к таблице заказчика.
 Кнопка «Открыть демо · бирки» на [egorov-tech.github.io/dealio](https://egorov-tech.github.io/dealio/).
 
-| Вход | Список бирок |
-|---|---|
-| ![Вход в демо](docs/demo/01-login.png) | ![Выбор бирки](docs/demo/02-badges.png) |
+| Вход | Выбор бирки | Подтверждение выдачи |
+|---|---|---|
+| ![Вход](docs/demo/m01-login.png) | ![Бирки](docs/demo/m02-badges.png) | ![Подтверждение](docs/demo/m03-confirm.png) |
+
+Десктоп (список бирок):
+
+![Выбор бирки · desktop](docs/demo/02-badges.png)
 
 ## Модули
 
