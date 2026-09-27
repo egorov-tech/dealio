@@ -36,12 +36,12 @@ import {
 } from '~/utils/erp-api'
 import type {ErpApprovalDecisionStatus, ErpApprovalsResponse, ErpCurrentReport, ErpIdRow, ErpKsRow} from '~/utils/erp-api'
 import {
-    DEFAULT_SPREADSHEET_ID,
     GAS_URL_STORAGE_KEY,
     ISSUE_SHEET,
     ISSUE_SHEET_GID,
     JOURNAL_SHEET,
     getConfig,
+    isErpDemoMode,
     isGasConfigured,
     isSheetsApiConfigured,
     requestGas,
@@ -136,6 +136,11 @@ export async function fetchWorkshopBadges(workshopId: WorkshopId): Promise<strin
         return await fetchWorkshopBadgesViaApi(workshopId)
     }
 
+    // Демо / чистый локальный запуск: без ID таблицы и без GAS — только моки.
+    if (getErpSheetsMode() === 'mock' || isErpDemoMode()) {
+        return MOCK_BADGES[workshopId]
+    }
+
     const config = getConfig()
     let gasError: unknown
 
@@ -150,10 +155,12 @@ export async function fetchWorkshopBadges(workshopId: WorkshopId): Promise<strin
         }
     }
 
-    try {
-        return await fetchBadgesViaPublicCsv(config, workshopId)
-    } catch {
-        // пробуем другие способы
+    if (config.spreadsheetId && config.issueSheetGid) {
+        try {
+            return await fetchBadgesViaPublicCsv(config, workshopId)
+        } catch {
+            // пробуем другие способы
+        }
     }
 
     if (isSheetsApiConfigured(config)) {
@@ -333,6 +340,26 @@ export async function loginErpEmployee(login: string, password: string): Promise
     if (getErpBackendMode() === 'sql') {
         const profile = await loginErpEmployeeViaApi(login, password)
         return {...profile, password: ''}
+    }
+
+    if (isErpDemoMode()) {
+        return {
+            fio: 'Иванов Иван Иванович',
+            department: 'Производство',
+            position: 'Мастер',
+            platform: 'Колпино',
+            role: 'demo',
+            login: login.trim() || 'demo',
+            password: '',
+            access: {
+                ...DEFAULT_ACCESS_FLAGS,
+                badges: true,
+                packing: true,
+                measurements: true,
+                handover: true,
+                reports: true,
+            },
+        }
     }
 
     const config = getConfig()
@@ -661,6 +688,7 @@ export async function appendBadgeJournalEntry(entry: ErpBadgeIssue): Promise<Jou
 }
 
 export function getErpSheetsMode(): 'gas' | 'csv' | 'api' | 'mock' {
+    if (isErpDemoMode()) return 'mock'
     const config = getConfig()
     if (isGasConfigured(config)) return 'gas'
     if (config.spreadsheetId && config.issueSheetGid) return 'csv'
@@ -695,4 +723,5 @@ export async function testErpGasConnection(gasUrl: string): Promise<{ ok: boolea
     }
 }
 
-export {DEFAULT_SPREADSHEET_ID, ISSUE_SHEET, ISSUE_SHEET_GID, JOURNAL_SHEET}
+export {ISSUE_SHEET, ISSUE_SHEET_GID, JOURNAL_SHEET}
+export {isErpDemoMode} from '~/utils/erp/transport'

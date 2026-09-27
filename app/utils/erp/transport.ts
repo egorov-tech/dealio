@@ -19,9 +19,9 @@ import type {
 
 export const ISSUE_SHEET = 'Выдача'
 export const JOURNAL_SHEET = 'Журнал выдачи бирок'
-export const ISSUE_SHEET_GID = '1376055067'
 
-export const DEFAULT_SPREADSHEET_ID = '1HDj9ng5OdbgohhzdeP9LGVA-Fs_WI93m5IDWDdTXR-U'
+/** Legacy gid листа «Выдача» — только если задан NUXT_PUBLIC_ERP_ISSUE_SHEET_GID. */
+export const ISSUE_SHEET_GID = ''
 
 export const GAS_URL_STORAGE_KEY = 'erp-gas-url'
 
@@ -76,11 +76,16 @@ export function getConfig(): SheetsRuntimeConfig {
     const storedGasUrl = import.meta.client ? localStorage.getItem(GAS_URL_STORAGE_KEY) || '' : ''
 
     return {
-        spreadsheetId: config.public.erpSpreadsheetId || DEFAULT_SPREADSHEET_ID,
-        issueSheetGid: config.public.erpIssueSheetGid || ISSUE_SHEET_GID,
+        spreadsheetId: config.public.erpSpreadsheetId || '',
+        issueSheetGid: config.public.erpIssueSheetGid || '',
         apiKey: config.public.erpSheetsApiKey || '',
         gasUrl: envGasUrl || storedGasUrl,
     }
+}
+
+/** Публичное демо без бэкенда заказчика (GitHub Pages / локальный preview). */
+export function isErpDemoMode(): boolean {
+    return Boolean(useRuntimeConfig().public.erpDemoMode)
 }
 
 export function isSheetsApiConfigured(config: SheetsRuntimeConfig): boolean {

@@ -20,7 +20,7 @@ ERP «Выдача бирок» для заказчика (Морфлот Тех
 Исходник GAS в репо: `scripts/erp-gas-webapp.js`
 
 Таблицы:
-- Ведомости (prod): `1HDj9ng5OdbgohhzdeP9LGVA-Fs_WI93m5IDWDdTXR-U`
+- Ведомости (prod): `<SPREADSHEET_ID>`
 - Доступ к сервису: `12TAfi2p6hMBG_MnP4LEROnZ6BaJp0bTFHd93jq06Qz8`
 
 Сейчас деплой вручную: copy-paste в script.google.com → Deploy → Web app.
@@ -213,7 +213,7 @@ docs/gas-deploy.md
 
 - [clasp — Google Developers](https://developers.google.com/apps-script/guides/clasp)
 - [Включить Apps Script API](https://script.google.com/home/usersettings)
-- Таблица Ведомости: https://docs.google.com/spreadsheets/d/1HDj9ng5OdbgohhzdeP9LGVA-Fs_WI93m5IDWDdTXR-U/edit
+- Таблица Ведомости: https://docs.google.com/spreadsheets/d/<SPREADSHEET_ID>/edit
 
 ### Результат прогона
 

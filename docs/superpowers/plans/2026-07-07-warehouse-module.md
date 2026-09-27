@@ -71,7 +71,7 @@
  * POST { action: 'issueItem',   platform, cell, name, type, qty, unit, fio, recipientFio }
  */
 const SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID')
-    || '1GR19_j5tuqQQthlJ7Ok5Z1EFdQKx0g_jjj_tj6R9xUY'
+    || '<WAREHOUSE_SPREADSHEET_ID>'
 
 const NOMENCLATURE_SHEET = 'Номенклатура'
 const STOCK_SHEET = 'Склад'
@@ -1979,7 +1979,7 @@ Expected: `Pushed 2 files`
 
 - [ ] **Step 4: Пользователь создаёт копию таблицы «Склад» для staging**
 
-**Требует действия пользователя** (та же схема, что и для ERP Ведомости): в Google Sheets открыть таблицу `1GR19_j5tuqQQthlJ7Ok5Z1EFdQKx0g_jjj_tj6R9xUY` → «Файл → Создать копию» → дать доступ «у кого есть ссылка» → прислать ID копии.
+**Требует действия пользователя** (та же схема, что и для ERP Ведомости): в Google Sheets открыть таблицу `<WAREHOUSE_SPREADSHEET_ID>` → «Файл → Создать копию» → дать доступ «у кого есть ссылка» → прислать ID копии.
 
 - [ ] **Step 5: Пользователь настраивает Script Property и деплоит staging**
 

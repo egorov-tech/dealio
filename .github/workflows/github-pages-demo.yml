@@ -1,0 +1,73 @@
+# Публичное демо на GitHub Pages: только мок-данные, без ID таблицы заказчика.
+name: Deploy public demo (GitHub Pages)
+
+on:
+  push:
+    branches: ['main']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages-demo
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate static demo
+        env:
+          NUXT_APP_BASE_URL: /dealio/
+          NUXT_PUBLIC_ERP_DEMO_MODE: 'true'
+          NUXT_PUBLIC_ERP_BACKEND_MODE: gas
+          NUXT_PUBLIC_ERP_API_BASE: /api
+          # Явно пусто — никаких ID таблицы в бандле демо.
+          NUXT_PUBLIC_ERP_SPREADSHEET_ID: ''
+          NUXT_PUBLIC_ERP_ISSUE_SHEET_GID: ''
+          NUXT_PUBLIC_ERP_GAS_URL: ''
+          NUXT_PUBLIC_WAREHOUSE_GAS_URL: ''
+        run: npm run generate
+
+      - name: Verify demo assets use /dealio/ base
+        run: |
+          test -f .output/public/index.html
+          test -f .output/public/badges/index.html || test -f .output/public/badges.html
+          # Ассеты не должны ссылаться на корень домена (/_nuxt/...).
+          if grep -R --include='*.html' -E 'href="/_nuxt/|src="/_nuxt/' .output/public; then
+            echo "Found absolute /_nuxt/ assets — baseURL broken" >&2
+            exit 1
+          fi
+          grep -R --include='*.html' -E 'href="/dealio/_nuxt/|src="/dealio/_nuxt/' .output/public | head -5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .output/public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

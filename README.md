@@ -19,6 +19,7 @@
 
 - Прод: <https://erp-mt.ru>
 - Стенд: <https://erp-mt.online>
+- Публичное демо (мок-данные, без таблицы заказчика): <https://egorov-tech.github.io/dealio/>
 - Карта проекта для новых участников: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - **Начать работу над проектом:** [`docs/onboarding/`](docs/onboarding/) — доступы,
   локальный стенд, грабли, стиль

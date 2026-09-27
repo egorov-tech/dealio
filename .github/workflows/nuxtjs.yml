@@ -69,6 +69,9 @@ jobs:
           # в окружении не задана.
           NUXT_PUBLIC_ERP_BACKEND_MODE: ${{ vars.ERP_BACKEND_MODE || 'gas' }}
           NUXT_PUBLIC_ERP_API_BASE: ${{ vars.ERP_API_BASE || '/api' }}
+          # ID таблицы только из секретов окружения — в коде дефолтов больше нет.
+          NUXT_PUBLIC_ERP_SPREADSHEET_ID: ${{ secrets.NUXT_PUBLIC_ERP_SPREADSHEET_ID }}
+          NUXT_PUBLIC_ERP_ISSUE_SHEET_GID: ${{ secrets.NUXT_PUBLIC_ERP_ISSUE_SHEET_GID }}
         run: npm run generate
 
       - name: Write release marker

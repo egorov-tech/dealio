@@ -2,11 +2,12 @@
  * CRM «Ведомости» — отдельный Web App для выдачи бирок.
  * Бота FindTagMFT не трогает — свой Apps Script проект, своя деплойка.
  *
- * 1. Extensions → Apps Script в таблице:
- *    https://docs.google.com/spreadsheets/d/1HDj9ng5OdbgohhzdeP9LGVA-Fs_WI93m5IDWDdTXR-U/
+ * 1. Extensions → Apps Script в таблице заказчика (ID только в Script Properties)
  * 2. Вставить этот файл, Deploy → New deployment → Web app
  * 3. Execute as: Me · Who has access: Anyone
- * 4. URL → NUXT_PUBLIC_CRM_GAS_URL
+ * 4. Script Properties (обязательно):
+ *    SPREADSHEET_ID, ACCESS_SPREADSHEET_ID, REPORTS_SPREADSHEET_ID
+ * 5. URL → NUXT_PUBLIC_ERP_GAS_URL
  *
  * GET  ?action=badges&workshop=kolpino|volkhonka
  * GET  ?action=issuedToday&fio=...&workshop=kolpino|volkhonka  (fio/workshop опциональны)
@@ -22,21 +23,21 @@
  * POST { action: 'recordMeasurement', fio, badge, coverage, zone1..zone5 }
  * POST { action: 'login',            login, password }
  */
-// Script Property SPREADSHEET_ID переопределяет дефолт — используется для staging-копии
-// таблицы, прод-деплой не задаёт это свойство и продолжает работать с дефолтом как раньше.
-const SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID')
-    || '1HDj9ng5OdbgohhzdeP9LGVA-Fs_WI93m5IDWDdTXR-U'
+function requiredScriptProperty_(key) {
+    const value = PropertiesService.getScriptProperties().getProperty(key)
+    if (!value) {
+        throw new Error('Задайте Script Property ' + key)
+    }
+    return value
+}
+
+const SPREADSHEET_ID = requiredScriptProperty_('SPREADSHEET_ID')
 const ISSUE_SHEET = 'Выдача'
 const JOURNAL_SHEET = 'Журнал выдачи бирок'
 const LOGIST_SHEET = 'Логисты'
 const HANDOVER_SHEET = 'Сдача'
 const MEASUREMENT_SHEET = 'Промеры'
-// Таблица «Отчеты Секретаря» — не секрет, её идентификатор с самого начала
-// лежит в спеке отчётов, а доступ к данным закрывает токен. Дефолт здесь
-// снимает одну ручную настройку и одну возможность опечататься; Script
-// Property по-прежнему перекрывает его, как у таблицы «Ведомости».
-const REPORTS_SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty('REPORTS_SPREADSHEET_ID')
-    || '1Y4HcpLRakc-aPWEwfF0PYmo5nzjj_0BLpbzqbtpqHvk'
+const REPORTS_SPREADSHEET_ID = requiredScriptProperty_('REPORTS_SPREADSHEET_ID')
 const REPORTS_SHEET_NAME = PropertiesService.getScriptProperties().getProperty('REPORTS_SHEET_NAME') || 'Лист15'
 const REPORTS_BRIDGE_TOKEN = PropertiesService.getScriptProperties().getProperty('REPORTS_BRIDGE_TOKEN') || ''
 // «КС» и «ИД» — те же Script Properties, что и у остального отчёта: своя
@@ -53,9 +54,7 @@ const WORKSHOP_SHEETS = {
 }
 
 // Отдельная таблица доступа сотрудников (логины/пароли/статусы) — НЕ «Ведомости».
-// Script Property ACCESS_SPREADSHEET_ID переопределяет дефолт по той же схеме, что и SPREADSHEET_ID.
-const ACCESS_SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty('ACCESS_SPREADSHEET_ID')
-    || '12TAfi2p6hMBG_MnP4LEROnZ6BaJp0bTFHd93jq06Qz8'
+const ACCESS_SPREADSHEET_ID = requiredScriptProperty_('ACCESS_SPREADSHEET_ID')
 const STAFF_SHEET = 'Сотрудники'
 const ACTIVE_STATUS = 'Работает'
 // Колонка K — первая колонка прав и доступов на листе «Сотрудники».

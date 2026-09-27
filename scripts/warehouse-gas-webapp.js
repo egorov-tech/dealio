@@ -2,6 +2,8 @@
  * Склад — Web App для приёма/выдачи товара.
  * Отдельный GAS-проект от ERP Ведомости — своя таблица, свой деплой.
  *
+ * Script Property SPREADSHEET_ID обязателен (ID не хранится в публичном репо).
+ *
  * GET  ?action=categories
  * GET  ?action=items&category=...
  * GET  ?action=stock&platform=...&category=...   (category опционален)
@@ -9,8 +11,15 @@
  * POST { action: 'receiveItem', platform, cell, name, type, qty, unit, fio }
  * POST { action: 'issueItem',   platform, cell, name, type, qty, unit, fio, recipientFio }
  */
-const SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID')
-    || '1GR19_j5tuqQQthlJ7Ok5Z1EFdQKx0g_jjj_tj6R9xUY'
+function requiredScriptProperty_(key) {
+    const value = PropertiesService.getScriptProperties().getProperty(key)
+    if (!value) {
+        throw new Error('Задайте Script Property ' + key)
+    }
+    return value
+}
+
+const SPREADSHEET_ID = requiredScriptProperty_('SPREADSHEET_ID')
 
 const NOMENCLATURE_SHEET = 'Номенклатура'
 const STOCK_SHEET = 'Склад'
