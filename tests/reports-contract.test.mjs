@@ -192,6 +192,7 @@ test('КС: источник — erp_pto_ks, а не Google-таблица; ша
   const handler = reports.slice(reports.indexOf('function erp_reports_ks_current('))
   const body = handler.slice(0, handler.indexOf('\n}\n'))
   assert.match(body, /FROM erp_pto_ks k/)
+  assert.match(body, /c\.subject/)
   assert.match(body, /LEFT JOIN erp_contracts c ON c\.internal_number = k\.contract_internal_number/)
   assert.match(body, /array_map\('erp_reports_ks_row', \$rows\)/)
   assert.doesNotMatch(body, /erp_reports_fetch_bridge/)
@@ -211,6 +212,7 @@ test('ИД: источник — erp_pto_ed; площадь = «Объём» к�
   const handler = reports.slice(reports.indexOf('function erp_reports_id_current('))
   const body = handler.slice(0, handler.indexOf('\n}\n'))
   assert.match(body, /FROM erp_pto_ed e/)
+  assert.match(body, /c\.subject/)
   assert.match(body, /LEFT JOIN erp_contracts c ON c\.internal_number = e\.contract_internal_number/)
   assert.match(body, /array_map\('erp_reports_id_row', \$rows\)/)
 
@@ -234,13 +236,15 @@ test('ИД: источник — erp_pto_ed; площадь = «Объём» к�
   assert.doesNotMatch(idPage, /Итого/)
 })
 
-test('КС/ИД: договор группируется по человекочитаемой метке — номер плюс заказчик', () => {
-  // Таблицы ПТО хранят только внутренний номер договора, а не готовую
-  // подпись, как раньше был лист Google — «274» без контекста в шапке
-  // карточки был бы шагом назад для менеджера, который номера не помнит.
+test('КС/ИД: договор группируется по метке «номер - наименование договора»', () => {
+  // Таблицы ПТО хранят только внутренний номер договора. Предмет договора
+  // отличает проекты одного заказчика, а разделитель «-» нужен для единого
+  // формата с остальными таблицами ERP.
   const label = reports.slice(reports.indexOf('function erp_reports_contract_label('))
   const body = label.slice(0, label.indexOf('\n}\n'))
-  assert.match(body, /\$customer !== '' \? "\{\$internal\} · \{\$customer\}" : \$internal/)
+  assert.match(body, /\$subject = trim/)
+  assert.match(body, /"\{\$internal\} - \{\$subject\}"/)
+  assert.match(body, /"\{\$internal\} - \{\$customer\}"/)
 })
 
 test('невидимый хвост из выгрузки не превращает статус в кашу на экране отчётов', () => {
@@ -286,8 +290,10 @@ test('плашка статуса — палитра из ТЗ, контур н�
   assert.match(statusBadge, /STATUS_TONE\[props\.status\] \?\? 'neutral'/)
   assert.match(statusBadge, /&--neutral[\s\S]{0,80}border: 1px solid/)
 
-  assert.match(idPage, /<ErpStatusBadge :status="line\.status"\/>/)
-  assert.match(ksPage, /<ErpStatusBadge :status="line\.status"\/>/)
+  // На телефоне та же плашка разворачивается в полосу: поведение не меняет
+  // смысл статуса и не должно ломать контракт цветовой индикации.
+  assert.match(idPage, /<ErpStatusBadge :status="line\.status" layout="row"\/>/)
+  assert.match(ksPage, /<ErpStatusBadge :status="line\.status" layout="row"\/>/)
 })
 
 test('лист без шапки не теряет первую строку при чтении по буквам', () => {

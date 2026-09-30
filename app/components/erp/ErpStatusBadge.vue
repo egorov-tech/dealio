@@ -20,12 +20,21 @@ const STATUS_TONE: Record<string, string> = {
   'Подписана': 'done',
 }
 
-const props = defineProps<{status: string}>()
+const props = withDefaults(defineProps<{
+  status: string
+  /** В строке отчёта на телефоне — полоска на всю ширину, не «таблетка». */
+  layout?: 'chip' | 'row'
+}>(), {
+  layout: 'chip',
+})
 const tone = computed(() => STATUS_TONE[props.status] ?? 'neutral')
 </script>
 
 <template>
-  <span class="erp-status-badge" :class="`erp-status-badge--${tone}`">{{ status || '—' }}</span>
+  <span
+      class="erp-status-badge"
+      :class="[`erp-status-badge--${tone}`, `erp-status-badge--${layout}`]"
+  >{{ status || '—' }}</span>
 </template>
 
 <style scoped lang="sass">
@@ -45,6 +54,7 @@ const tone = computed(() => STATUS_TONE[props.status] ?? 'neutral')
   font-weight: 500
   line-height: 1.35
   text-align: center
+
   // Перенос только по границе слова, и оба свойства заданы явно: они
   // наследуемые, а колонки таблиц вокруг любят ставить себе
   // overflow-wrap: anywhere ради длинных шифров. Унаследовав его, плашка
@@ -55,6 +65,13 @@ const tone = computed(() => STATUS_TONE[props.status] ?? 'neutral')
   // насыщенную (#ed7d31): белый текст на ней даёт 2,8:1 и нечитаем — тот же
   // вывод, что и у карточек ИД в разделе «ПТО» (app/pages/pto-ed.vue).
   color: #16202e
+
+  &--row
+    width: 100%
+    justify-content: flex-start
+    border-radius: 10px
+    padding: 7px 12px
+    min-height: 32px
 
   // Заливки — из ТЗ. Контур подобран темнее той же краски: карточка отчёта
   // белая, но плашка должна оставаться различимой и на самом бледном тоне

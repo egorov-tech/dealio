@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {fetchReportsId} from '~/utils/erp-sheets'
 import type {ErpIdRow} from '~/utils/erp-api'
-import {groupIdByContract} from '~/utils/erp-ks-id-grouping'
+import {groupIdByContract, splitContractTitle} from '~/utils/erp-ks-id-grouping'
 
 definePageMeta({layout: 'erp'})
 useSeoMeta({title: 'ИД | ERP'})
@@ -32,7 +32,10 @@ const formatArea = (value: number): string => new Intl.NumberFormat('ru-RU', {
   maximumFractionDigits: Number.isInteger(value) ? 0 : 1,
 }).format(value)
 
-const groups = computed(() => groupIdByContract(rows.value))
+const groups = computed(() => groupIdByContract(rows.value).map(group => ({
+  ...group,
+  title: splitContractTitle(group.contract),
+})))
 </script>
 
 <template>
@@ -65,7 +68,8 @@ const groups = computed(() => groupIdByContract(rows.value))
     <div v-else class="id-groups">
       <article v-for="group in groups" :key="group.contract" class="id-group">
         <header class="id-group__head">
-          <strong>{{ group.contract }}</strong>
+          <strong class="id-group__code">{{ group.title.code }}</strong>
+          <p v-if="group.title.customer" class="id-group__customer">{{ group.title.customer }}</p>
         </header>
 
         <div class="id-group__grid" role="table" :aria-label="`ИД по договору ${group.contract}`">
@@ -75,9 +79,11 @@ const groups = computed(() => groupIdByContract(rows.value))
             <span role="columnheader">Стоимость с НДС</span>
           </div>
           <div v-for="(line, index) in group.rows" :key="`${line.status}-${index}`" class="id-group__grid-row" role="row">
-            <span class="id-group__status" role="cell" data-label="Статус"><ErpStatusBadge :status="line.status"/></span>
-            <span class="id-group__area" role="cell" data-label="Площадь">{{ formatArea(line.area) }}</span>
-            <span class="id-group__amount" role="cell" data-label="Стоимость с НДС">{{ formatAmount(line.amountWithVat) }}</span>
+            <span class="id-group__status" role="cell">
+              <ErpStatusBadge :status="line.status" layout="row"/>
+            </span>
+            <span class="id-group__area" role="cell" data-label="Площадь, м²">{{ formatArea(line.area) }}</span>
+            <span class="id-group__amount" role="cell" data-label="С НДС, ₽">{{ formatAmount(line.amountWithVat) }}</span>
           </div>
         </div>
       </article>
@@ -88,35 +94,51 @@ const groups = computed(() => groupIdByContract(rows.value))
 <style scoped lang="sass">
 .id-groups
   display: grid
-  gap: 10px
+  gap: 12px
 
 .id-group
   display: grid
-  gap: 14px
-  padding: 16px
-  border-radius: 16px
+  gap: 0
+  padding: 0
+  overflow: hidden
+  border-radius: 14px
   border: 0.5px solid rgba(60, 60, 67, 0.12)
   background: #fff
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06)
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04)
 
-.id-group__head strong
-  font-size: 16px
+.id-group__head
+  display: grid
+  gap: 2px
+  padding: 14px 16px 12px
+  border-bottom: 0.5px solid rgba(60, 60, 67, 0.1)
+
+.id-group__code
+  margin: 0
+  font-size: 17px
   font-weight: 700
+  letter-spacing: -0.01em
   color: var(--color-text)
+
+.id-group__customer
+  margin: 0
+  font-size: 13px
+  line-height: 1.3
+  color: var(--color-text-secondary)
 
 .id-group__grid
   display: grid
   gap: 0
+  padding: 4px 16px 8px
 
 .id-group__grid-head,
 .id-group__grid-row
   display: grid
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.65fr) minmax(0, 1fr)
   gap: 8px
-  align-items: baseline
+  align-items: center
 
 .id-group__grid-head
-  padding-bottom: 8px
+  padding: 8px 0
   border-bottom: 0.5px solid rgba(60, 60, 67, 0.1)
   font-size: 11px
   font-weight: 600
@@ -126,7 +148,7 @@ const groups = computed(() => groupIdByContract(rows.value))
     text-align: right
 
 .id-group__grid-row
-  padding: 10px 0
+  padding: 12px 0
   font-size: 13px
   color: var(--color-text)
   border-bottom: 0.5px solid rgba(60, 60, 67, 0.08)
@@ -137,9 +159,6 @@ const groups = computed(() => groupIdByContract(rows.value))
 .id-group__status
   min-width: 0
 
-  :deep(.erp-status-badge)
-    text-align: left
-
 .id-group__area,
 .id-group__amount
   text-align: right
@@ -148,14 +167,17 @@ const groups = computed(() => groupIdByContract(rows.value))
   font-weight: 600
 
 @media (max-width: 600px)
+  .id-group__grid
+    padding: 2px 14px 6px
+
   .id-group__grid-head
     display: none
 
   .id-group__grid-row
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)
     grid-template-areas: "status status" "area amount"
-    gap: 10px 14px
-    align-items: center
+    gap: 8px 16px
+    align-items: end
     padding: 14px 0
 
   .id-group__status
@@ -167,21 +189,32 @@ const groups = computed(() => groupIdByContract(rows.value))
   .id-group__amount
     grid-area: amount
 
+  .id-group__area,
+  .id-group__amount
+    text-align: left
+    font-size: 16px
+    font-weight: 600
+    letter-spacing: -0.01em
+    line-height: 1.2
+
+  .id-group__amount
+    text-align: right
+
   .id-group__grid-row [data-label]::before
     display: block
-    margin-bottom: 3px
+    margin-bottom: 4px
     color: var(--color-text-secondary)
     content: attr(data-label)
     font-size: 11px
-    font-weight: 600
+    font-weight: 500
     line-height: 1.2
-
-  .id-group__area::before,
-  .id-group__amount::before
-    text-align: right
+    letter-spacing: 0
 
 @media (max-width: 360px)
-  .id-group__grid-head,
   .id-group__grid-row
-    gap: 8px 10px
+    gap: 8px 12px
+
+  .id-group__area,
+  .id-group__amount
+    font-size: 15px
 </style>
