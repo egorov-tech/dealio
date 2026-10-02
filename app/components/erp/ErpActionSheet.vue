@@ -1,3 +1,9 @@
+<script lang="ts">
+// Счётчик открытых шторок — на уровне модуля, иначе несколько экземпляров
+// на странице (карточка + confirm) каждый держат свой 0 и ломают tab bar.
+let openSheetCount = 0
+</script>
+
 <script setup lang="ts">
 import {useTabBarHidden} from '~/composables/useTabBarHidden'
 
@@ -12,10 +18,6 @@ const emit = defineEmits<{
 }>()
 
 const isTabBarHidden = useTabBarHidden()
-
-// Несколько шторок на одной странице (карточка + подтверждение) — считаем
-// открытые экземпляры, иначе закрытие верхней снова показывает tab bar.
-let openSheetCount = 0
 
 const syncTabBarHidden = () => {
     isTabBarHidden.value = openSheetCount > 0
@@ -94,42 +96,49 @@ const onDragEnd = () => {
 </script>
 
 <template>
-  <Transition name="erp-sheet">
-    <div v-if="open" class="erp-sheet-root">
-      <div class="erp-sheet-backdrop" aria-hidden="true" @click="dismiss"/>
+  <!--
+    INVARIANT: шторка только через Teleport → body.
+    Внутри .erp-layout у неё ломается position:fixed (overflow/clip + flex:1
+    на прямых детях контента) — карточка «улетает» при открытии с бирки.
+  -->
+  <Teleport to="body">
+    <Transition name="erp-sheet">
+      <div v-if="open" class="erp-sheet-root">
+        <div class="erp-sheet-backdrop" aria-hidden="true" @click="dismiss"/>
 
-      <div
-          class="erp-sheet-panel"
-          role="dialog"
-          aria-modal="true"
-          :aria-label="ariaLabel"
-          :style="panelStyle"
-      >
-        <div class="erp-sheet-grip" @pointerdown="onDragStart">
-          <span class="erp-sheet-handle"/>
-        </div>
+        <div
+            class="erp-sheet-panel"
+            role="dialog"
+            aria-modal="true"
+            :aria-label="ariaLabel"
+            :style="panelStyle"
+        >
+          <div class="erp-sheet-grip" @pointerdown="onDragStart">
+            <span class="erp-sheet-handle"/>
+          </div>
 
-        <p v-if="$slots.label" class="erp-sheet-label"><slot name="label"/></p>
+          <p v-if="$slots.label" class="erp-sheet-label"><slot name="label"/></p>
 
-        <article v-if="$slots.content" class="erp-sheet-card">
-          <p class="erp-sheet-content"><slot name="content"/></p>
-        </article>
+          <article v-if="$slots.content" class="erp-sheet-card">
+            <p class="erp-sheet-content"><slot name="content"/></p>
+          </article>
 
-        <p v-if="$slots.meta" class="erp-sheet-meta"><slot name="meta"/></p>
-        <Transition name="erp-sheet-error">
-          <p v-if="$slots.error" class="erp-sheet-error"><slot name="error"/></p>
-        </Transition>
+          <p v-if="$slots.meta" class="erp-sheet-meta"><slot name="meta"/></p>
+          <Transition name="erp-sheet-error">
+            <p v-if="$slots.error" class="erp-sheet-error"><slot name="error"/></p>
+          </Transition>
 
-        <div v-if="$slots.form" class="erp-sheet-form">
-          <slot name="form"/>
-        </div>
+          <div v-if="$slots.form" class="erp-sheet-form">
+            <slot name="form"/>
+          </div>
 
-        <div v-if="$slots.actions" class="erp-sheet-actions">
-          <slot name="actions"/>
+          <div v-if="$slots.actions" class="erp-sheet-actions">
+            <slot name="actions"/>
+          </div>
         </div>
       </div>
-    </div>
-  </Transition>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped lang="sass">
@@ -140,6 +149,8 @@ const onDragEnd = () => {
   display: flex
   align-items: flex-end
   justify-content: center
+  // Явный цвет — шторка на body вне .erp-layout (см. erp-theme invariant)
+  color: #1C2530
 
 .erp-sheet-backdrop
   position: absolute

@@ -33,6 +33,8 @@ test('employee card sheet scrolls within the viewport while the page behind stay
   assert.match(actionSheet, /isTabBarHidden/)
   assert.match(actionSheet, /\.erp-sheet-form[\s\S]*overflow-y: auto/)
   assert.match(actionSheet, /document\.body\.style\.overflow = value \? 'hidden' : ''/)
+  // Шторка на body — иначе fixed ломается внутри .erp-layout (overflow/flex)
+  assert.match(actionSheet, /<Teleport to="body">/)
 })
 
 test('Personnel hides chrome while a sheet is open', () => {
