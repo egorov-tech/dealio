@@ -1,8 +1,10 @@
 /*
  * iOS 18 палитра для ERP «Морфлот Технология».
- * Применяется только внутри .erp-layout — остальное приложение не затронуто.
+ * На .erp-layout — основной shell. На .erp-sheet-root — шторки через Teleport
+ * на body (иначе inherit с тёмного корня: чёрная карточка, невидимые кнопки).
  */
-.erp-layout {
+.erp-layout,
+.erp-sheet-root {
     /* Корпоративный синий: светло-синий тинт вместо нейтрально-серого */
     --color-bg:           #EAF2FD;   /* сине-тинт grouped background */
     --color-bg-secondary: #FFFFFF;
@@ -72,38 +74,48 @@
 }
 
 /* ─── Button: iOS pill shape, 50px primary tap target ─────────────────── */
-.erp-layout .ui-btn {
+.erp-layout .ui-btn,
+.erp-sheet-root .ui-btn {
     border-radius: 14px;
     letter-spacing: -0.2px;
 }
-.erp-layout .ui-btn--md {
+.erp-layout .ui-btn--md,
+.erp-sheet-root .ui-btn--md {
     height: 44px;
     font-size: 15px;
     padding: 0 20px;
 }
 .erp-layout .ui-btn--primary,
 .erp-layout .ui-btn--secondary,
-.erp-layout .ui-btn--outline {
+.erp-layout .ui-btn--outline,
+.erp-sheet-root .ui-btn--primary,
+.erp-sheet-root .ui-btn--secondary,
+.erp-sheet-root .ui-btn--outline {
     border-radius: 14px;
 }
 /* Брендовый градиент на primary — как CTA в макете «Корпоративный синий» */
-.erp-layout .ui-btn--primary {
+.erp-layout .ui-btn--primary,
+.erp-sheet-root .ui-btn--primary {
     background: linear-gradient(135deg, #016ED7 0%, #3897ED 100%);
     box-shadow: 0 6px 16px -6px rgba(1, 110, 215, 0.6);
 }
-.erp-layout .ui-btn--primary:hover:enabled {
+.erp-layout .ui-btn--primary:hover:enabled,
+.erp-sheet-root .ui-btn--primary:hover:enabled {
     transform: none;
     background: linear-gradient(135deg, #0260BD 0%, #2385DB 100%);
 }
-.erp-layout .ui-btn--primary:active:enabled {
+.erp-layout .ui-btn--primary:active:enabled,
+.erp-sheet-root .ui-btn--primary:active:enabled {
     background: linear-gradient(135deg, #014F9C 0%, #1D77C7 100%);
 }
-.erp-layout .ui-btn--ghost {
+.erp-layout .ui-btn--ghost,
+.erp-sheet-root .ui-btn--ghost {
     border-radius: 10px;
 }
 
 /* ─── Input: iOS grouped-inset style ──────────────────────────────────── */
-.erp-layout .ui-input__label {
+.erp-layout .ui-input__label,
+.erp-sheet-root .ui-input__label {
     text-transform: none;
     letter-spacing: -0.1px;
     font-weight: 600;
@@ -111,14 +123,16 @@
     color: var(--color-text-secondary);
     margin-bottom: 5px;
 }
-.erp-layout .ui-input__field {
+.erp-layout .ui-input__field,
+.erp-sheet-root .ui-input__field {
     height: 44px;
     border-radius: 10px;
     border-color: rgba(60, 60, 67, 0.18);
     font-size: 16px;
     padding: 0 14px;
 }
-.erp-layout .ui-input__field:focus-visible {
+.erp-layout .ui-input__field:focus-visible,
+.erp-sheet-root .ui-input__field:focus-visible {
     border-color: #016ED7;
     box-shadow: 0 0 0 3px rgba(1, 110, 215, 0.12) !important;
 }
@@ -144,7 +158,9 @@
  * Держим минимум 16px для всех полей ввода в ERP.
  */
 .erp-layout input,
-.erp-layout textarea {
+.erp-layout textarea,
+.erp-sheet-root input,
+.erp-sheet-root textarea {
     font-size: 16px !important;
 }
 

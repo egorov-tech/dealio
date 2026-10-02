@@ -6,6 +6,7 @@ const page = await readFile(new URL('../app/pages/personnel.vue', import.meta.ur
 const screen = await readFile(new URL('../app/components/erp/ErpScreen.vue', import.meta.url), 'utf8')
 const table = await readFile(new URL('../app/components/erp/ErpPersonnelEmployeeTable.vue', import.meta.url), 'utf8')
 const actionSheet = await readFile(new URL('../app/components/erp/ErpActionSheet.vue', import.meta.url), 'utf8')
+const theme = await readFile(new URL('../app/assets/css/erp-theme.css', import.meta.url), 'utf8')
 const sections = await readFile(new URL('../app/utils/erp-sections.ts', import.meta.url), 'utf8')
 const layout = await readFile(new URL('../app/layouts/erp.vue', import.meta.url), 'utf8')
 const returnToDepartmentsStart = page.indexOf('const returnToDepartments = () =>')
@@ -35,6 +36,9 @@ test('employee card sheet scrolls within the viewport while the page behind stay
   assert.match(actionSheet, /document\.body\.style\.overflow = value \? 'hidden' : ''/)
   // Шторка на body — иначе fixed ломается внутри .erp-layout (overflow/flex)
   assert.match(actionSheet, /<Teleport to="body">/)
+  // Токены палитры должны жить и на .erp-sheet-root (Teleport вне .erp-layout)
+  assert.match(theme, /\.erp-layout,\s*\n\.erp-sheet-root\s*\{/)
+  assert.match(theme, /\.erp-sheet-root \.ui-btn/)
 })
 
 test('Personnel hides chrome while a sheet is open', () => {
